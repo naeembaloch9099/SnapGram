@@ -32,12 +32,22 @@ const ToastItem = ({ toast, onRemove }) => {
     warning: FiAlertCircle,
   }[type];
 
+  // Safely format message: sometimes callers pass an object (e.g. { code, message })
+  // which would cause React to throw 'Objects are not valid as a React child'.
+  const renderMessage =
+    message && typeof message === "object"
+      ? // prefer a `.message` key if present, otherwise stringify cheaply
+        message.message || JSON.stringify(message)
+      : message;
+
   return (
     <div
       className={`flex items-center gap-3 px-4 py-3 border rounded-lg shadow-md ${bgColor} animate-slideIn`}
     >
       <Icon className={`w-5 h-5 flex-shrink-0 ${iconColor}`} />
-      <p className={`font-medium text-sm flex-1 ${textColor}`}>{message}</p>
+      <p className={`font-medium text-sm flex-1 ${textColor}`}>
+        {renderMessage}
+      </p>
       <button
         onClick={() => onRemove(id)}
         className={`p-1 hover:bg-gray-200 rounded transition flex-shrink-0 ${textColor}`}
