@@ -1,6 +1,7 @@
 import React, { useState, useContext } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { AuthContext } from "../../context/AuthContext";
+import PasswordInput from "../../components/PasswordInput";
 
 const Login = () => {
   const navigate = useNavigate();
@@ -50,11 +51,11 @@ const Login = () => {
             className="w-full border border-gray-300 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-400 rounded-xl px-4 py-2.5 text-sm outline-none"
           />
 
-          <input
+          <PasswordInput
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            type="password"
             placeholder="Password"
+            autoComplete="current-password"
             className="w-full border border-gray-300 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-400 rounded-xl px-4 py-2.5 text-sm outline-none"
           />
 

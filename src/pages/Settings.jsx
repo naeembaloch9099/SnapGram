@@ -9,6 +9,7 @@ import {
   FiX,
 } from "react-icons/fi";
 import { AuthContext } from "../context/AuthContext";
+import PasswordInput from "../components/PasswordInput";
 import api from "../services/api";
 
 const KNOWN_KEYS = [
@@ -251,29 +252,29 @@ const Settings = () => {
             Change Password
           </h2>
           <form onSubmit={handleChangePassword} className="space-y-4">
-            <input
-              type="password"
-              placeholder="Current password"
+            <PasswordInput
               value={oldPassword}
               onChange={(e) => setOldPassword(e.target.value)}
-              className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition"
+              placeholder="Current password"
+              autoComplete="current-password"
               required
+              className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition"
             />
-            <input
-              type="password"
-              placeholder="New password (min 6 chars)"
+            <PasswordInput
               value={newPassword}
               onChange={(e) => setNewPassword(e.target.value)}
-              className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition"
+              placeholder="New password (min 6 chars)"
+              autoComplete="new-password"
               required
+              className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition"
             />
-            <input
-              type="password"
-              placeholder="Confirm new password"
+            <PasswordInput
               value={newPasswordConfirm}
               onChange={(e) => setNewPasswordConfirm(e.target.value)}
-              className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition"
+              placeholder="Confirm new password"
+              autoComplete="new-password"
               required
+              className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition"
             />
             <button
               type="submit"
