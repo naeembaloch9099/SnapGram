@@ -1,0 +1,56 @@
+/* Tailwind base + small sensible defaults for the app */
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;800&display=swap");
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --bg: #f8fafc; /* slate-50 */
+  --muted: #64748b; /* slate-500 */
+}
+
+@layer base {
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+  body {
+    @apply bg-[color:var(--bg)] text-slate-800 font-sans;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    min-width: 320px;
+  }
+  a {
+    @apply text-primary-500 font-medium;
+  }
+  a:hover {
+    @apply text-primary-700;
+  }
+}
+
+/* small helper utilities (optional) */
+@layer components {
+  .container-md {
+    @apply max-w-5xl mx-auto px-4;
+  }
+}
+
+/* Toast animations */
+@keyframes slideIn {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@layer utilities {
+  .animate-slideIn {
+    animation: slideIn 0.3s ease-in-out;
+  }
+}
