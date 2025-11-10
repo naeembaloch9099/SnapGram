@@ -79,11 +79,7 @@ const FullNotifications = () => {
           <h1 className="text-xl sm:text-2xl font-semibold">Notifications</h1>
         </div>
 
-        {/* Debug info */}
-        <div className="text-xs sm:text-sm text-slate-500 mb-4 p-2 sm:p-3 bg-slate-100 rounded overflow-auto">
-          User: {activeUser?.username || "loading"} (
-          {activeUser?._id || activeUser?.id || "no ID"})
-        </div>
+        {/* Debug info removed for production UI */}
 
         {loading ? (
           <div className="py-8">
