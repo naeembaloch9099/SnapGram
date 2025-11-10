@@ -10,19 +10,62 @@ export function initSocket(baseUrl) {
     });
   }
 
+  // Determine socket URL:
+  // Prefer explicit VITE_WS_URL (no path), otherwise derive origin from VITE_API_URL.
+  const derivedBase = (() => {
+    try {
+      if (
+        typeof import.meta !== "undefined" &&
+        import.meta.env &&
+        import.meta.env.VITE_WS_URL
+      )
+        return import.meta.env.VITE_WS_URL;
+      if (
+        typeof import.meta !== "undefined" &&
+        import.meta.env &&
+        import.meta.env.VITE_API_URL
+      )
+        return new URL(import.meta.env.VITE_API_URL).origin;
+    } catch (e) {
+      // ignore
+    }
+    return typeof window !== "undefined" ? window.location.origin : "";
+  })();
+
   // dynamic import - return a promise
   return import("socket.io-client")
     .then(({ io }) => {
       try {
-        socket = io(
-          baseUrl ||
-            (typeof window !== "undefined" ? window.location.origin : ""),
-          {
-            transports: ["websocket"],
-          }
-        );
+        // Allow polling fallback (avoids failing when websockets are blocked by proxy)
+        const socketUrl = baseUrl || derivedBase;
+        socket = io(socketUrl, {
+          // let engine decide transports; include polling fallback
+          transports: ["polling", "websocket"],
+          upgrade: true,
+          // allow cookies if needed (server uses credentials/cors)
+          withCredentials: true,
+          // path default is /socket.io
+        });
+
         socket.on("connect", () => console.log("socket connected", socket.id));
-        socket.on("disconnect", () => console.log("socket disconnected"));
+        socket.on("disconnect", (reason) =>
+          console.log("socket disconnected", reason)
+        );
+
+        // Helpful debugging handlers
+        socket.on("connect_error", (err) =>
+          console.error(
+            "socket connect_error:",
+            err && err.message ? err.message : err
+          )
+        );
+        socket.on("connect_timeout", (timeout) =>
+          console.error("socket connect_timeout:", timeout)
+        );
+        socket.on("reconnect_attempt", (attempt) =>
+          console.log("socket reconnect_attempt", attempt)
+        );
+
         return new Promise((resolve) => {
           socket.once("connect", () => resolve(socket));
         });
