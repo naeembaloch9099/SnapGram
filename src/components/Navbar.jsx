@@ -3,7 +3,9 @@ import { FiSend, FiSearch } from "react-icons/fi";
 import { FaHeart, FaUser, FaComment, FaEye } from "react-icons/fa";
 import { useNavigate } from "react-router-dom";
 import { MessageContext } from "../context/MessageContext";
-import { useNotifications } from "../context/NotificationContext";
+import { useNotifications as useNotificationsContext } from "../context/NotificationContext";
+import { useConversations } from "../hooks/useConversations";
+import { useNotificationsData } from "../hooks/useNotifications";
 
 // Responsive top navigation: logo, search input, icons
 const Navbar = () => {
@@ -73,8 +75,11 @@ function SearchOverlay({ onClose } = {}) {
 
 function ActivityButton() {
   const navigate = useNavigate();
-  const { clearActivity, hasUnreadNotifications, activity } =
-    useNotifications() || {};
+  const { clearActivity, activity } = useNotificationsContext() || {};
+  const notifQuery = useNotificationsData(true);
+  const hasUnreadNotifications = (notifQuery.data || []).some(
+    (n) => n.read === false
+  );
   const counts = activity || {
     likes: 0,
     mentions: 0,
@@ -82,6 +87,7 @@ function ActivityButton() {
     views: 0,
     follow_requests: 0,
   };
+
   const total = Object.values(counts).reduce((s, v) => s + (Number(v) || 0), 0);
 
   const fmt = (n) => {
@@ -148,8 +154,10 @@ function ActivityButton() {
 
 function MessageButton() {
   const navigate = useNavigate();
-  const { conversations, markAllRead } = useContext(MessageContext);
-  // Show number of conversations that have unread messages (one per chat)
+  const { markAllRead } = useContext(MessageContext);
+  // Use react-query to load conversations (cached where possible)
+  const convQuery = useConversations();
+  const conversations = convQuery.data || [];
   const unread = Array.isArray(conversations)
     ? conversations.filter((c) => Number(c.unread) > 0).length
     : 0;
@@ -170,7 +178,11 @@ function MessageButton() {
     >
       <FiSend size={20} />
       {unread > 0 && (
-        <span className="absolute -top-1 -right-2 inline-flex items-center justify-center px-1.5 py-0.5 text-xs font-semibold text-white bg-red-600 rounded-full" aria-live="polite" role="status">
+        <span
+          className="absolute -top-1 -right-2 inline-flex items-center justify-center px-1.5 py-0.5 text-xs font-semibold text-white bg-red-600 rounded-full"
+          aria-live="polite"
+          role="status"
+        >
           <span className="sr-only">{unread} unread conversations</span>
           {unread > 99 ? "99+" : unread}
         </span>
