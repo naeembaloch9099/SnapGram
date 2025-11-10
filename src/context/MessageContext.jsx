@@ -218,12 +218,13 @@ export const MessageProvider = ({ children }) => {
   useEffect(() => {
     if (!activeUser) return;
     // Initialize socket and wait for it to be ready before joining
+    // Declare userId here so it's available to the effect cleanup below.
+    const userId = activeUser.id || activeUser._id;
     (async () => {
       const s = await initSocket(
         import.meta.env.VITE_API_URL ||
           "https://snapserver-production.up.railway.app"
       );
-      const userId = activeUser.id || activeUser._id;
       if (s && userId) {
         try {
           // Join a room for this user so server can emit personal events
