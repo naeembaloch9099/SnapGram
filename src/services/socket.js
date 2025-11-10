@@ -27,6 +27,7 @@ export function initSocket(baseUrl) {
       )
         return new URL(import.meta.env.VITE_API_URL).origin;
     } catch (e) {
+      console.log("Error deriving socket URL", e);
       // ignore
     }
     return typeof window !== "undefined" ? window.location.origin : "";
