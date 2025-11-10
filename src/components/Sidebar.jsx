@@ -1,6 +1,9 @@
 import React, { useContext } from "react";
 import { MessageContext } from "../context/MessageContext";
 import { useNotifications } from "../context/NotificationContext";
+import { useQueryClient } from '@tanstack/react-query';
+import { useConversations } from '../hooks/useConversations';
+import { useNotificationsData } from '../hooks/useNotifications';
 import { NavLink } from "react-router-dom";
 import { useNavigate } from "react-router-dom";
 import {
@@ -25,8 +28,12 @@ const items = [
 
 const Sidebar = () => {
   const navigate = useNavigate();
+  const qc = useQueryClient();
   const { conversations = [] } = useContext(MessageContext) || {};
   const { hasUnreadNotifications } = useNotifications() || {};
+  // ensure queries exist in react-query cache without forcing sync fetch
+  useConversations({ enabled: false });
+  useNotificationsData(false, { enabled: false });
 
   const unreadConversations = Array.isArray(conversations)
     ? conversations.filter((c) => Number(c.unread) > 0).length
@@ -42,6 +49,11 @@ const Sidebar = () => {
               return (
                 <button
                   key={it.label}
+                  onMouseEnter={() => {
+                    // prefetch notifications data and module
+                    qc.prefetchQuery(['notifications',{unreadOnly:false}], () => import('../services/notificationService').then(m => m.fetchNotifications(false).then(r=>r.data)));
+                    import('../pages/Notifications');
+                  }}
                   onClick={(e) => {
                     e.preventDefault();
                     navigate("/notifications");
@@ -63,6 +75,11 @@ const Sidebar = () => {
               <NavLink
                 key={it.label}
                 to={it.to}
+                onMouseEnter={() => {
+                  // prefetch conversations data and the messages route chunk
+                  qc.prefetchQuery(['conversations'], () => import('../services/messageService').then(m => m.fetchConversations().then(r=>r.data)));
+                  import('../pages/Messages/Messages');
+                }}
                 className={({ isActive }) =>
                   `flex items-center gap-3 py-2 px-3 rounded hover:bg-slate-100 ${
                     isActive ? "bg-slate-100 font-semibold" : "text-slate-700"
