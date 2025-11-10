@@ -18,6 +18,23 @@ const queryClient = new QueryClient({
   },
 });
 
+// Warm important caches on app start to improve perceived navigation speed
+// Prefetch conversations and unread notifications so the Navbar/Sidebar can read cached data instantly
+queryClient.prefetchQuery({
+  queryKey: ["conversations"],
+  queryFn: () =>
+    import("./services/messageService").then((m) =>
+      m.fetchConversations().then((r) => r.data)
+    ),
+});
+queryClient.prefetchQuery({
+  queryKey: ["notifications", { unreadOnly: true }],
+  queryFn: () =>
+    import("./services/notificationService").then((m) =>
+      m.fetchNotifications(true).then((r) => r.data)
+    ),
+});
+
 // Optional: disable console output in the frontend when VITE_DISABLE_CONSOLE is set to 'true'
 try {
   if (import.meta.env.VITE_DISABLE_CONSOLE === "true") {
