@@ -1,9 +1,9 @@
 import React, { useContext } from "react";
 import { MessageContext } from "../context/MessageContext";
 import { useNotifications } from "../context/NotificationContext";
-import { useQueryClient } from '@tanstack/react-query';
-import { useConversations } from '../hooks/useConversations';
-import { useNotificationsData } from '../hooks/useNotifications';
+import { useQueryClient } from "@tanstack/react-query";
+import { useConversations } from "../hooks/useConversations";
+import { useNotificationsData } from "../hooks/useNotifications";
 import { NavLink } from "react-router-dom";
 import { useNavigate } from "react-router-dom";
 import {
@@ -51,8 +51,14 @@ const Sidebar = () => {
                   key={it.label}
                   onMouseEnter={() => {
                     // prefetch notifications data and module
-                    qc.prefetchQuery(['notifications',{unreadOnly:false}], () => import('../services/notificationService').then(m => m.fetchNotifications(false).then(r=>r.data)));
-                    import('../pages/Notifications');
+                    qc.prefetchQuery({
+                      queryKey: ["notifications", { unreadOnly: false }],
+                      queryFn: () =>
+                        import("../services/notificationService").then((m) =>
+                          m.fetchNotifications(false).then((r) => r.data)
+                        ),
+                    });
+                    import("../pages/Notifications");
                   }}
                   onClick={(e) => {
                     e.preventDefault();
@@ -77,8 +83,14 @@ const Sidebar = () => {
                 to={it.to}
                 onMouseEnter={() => {
                   // prefetch conversations data and the messages route chunk
-                  qc.prefetchQuery(['conversations'], () => import('../services/messageService').then(m => m.fetchConversations().then(r=>r.data)));
-                  import('../pages/Messages/Messages');
+                  qc.prefetchQuery({
+                    queryKey: ["conversations"],
+                    queryFn: () =>
+                      import("../services/messageService").then((m) =>
+                        m.fetchConversations().then((r) => r.data)
+                      ),
+                  });
+                  import("../pages/Messages/Messages");
                 }}
                 className={({ isActive }) =>
                   `flex items-center gap-3 py-2 px-3 rounded hover:bg-slate-100 ${
