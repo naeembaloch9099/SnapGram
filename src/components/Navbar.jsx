@@ -149,8 +149,9 @@ function ActivityButton() {
 function MessageButton() {
   const navigate = useNavigate();
   const { conversations, markAllRead } = useContext(MessageContext);
+  // Show number of conversations that have unread messages (one per chat)
   const unread = Array.isArray(conversations)
-    ? conversations.reduce((s, c) => s + (Number(c.unread) || 0), 0)
+    ? conversations.filter((c) => Number(c.unread) > 0).length
     : 0;
 
   return (
@@ -169,7 +170,8 @@ function MessageButton() {
     >
       <FiSend size={20} />
       {unread > 0 && (
-        <span className="absolute -top-1 -right-2 inline-flex items-center justify-center px-1.5 py-0.5 text-xs font-semibold text-white bg-red-600 rounded-full">
+        <span className="absolute -top-1 -right-2 inline-flex items-center justify-center px-1.5 py-0.5 text-xs font-semibold text-white bg-red-600 rounded-full" aria-live="polite" role="status">
+          <span className="sr-only">{unread} unread conversations</span>
           {unread > 99 ? "99+" : unread}
         </span>
       )}
