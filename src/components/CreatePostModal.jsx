@@ -510,23 +510,6 @@ const CreatePostModal = () => {
                       <h3 className="text-sm font-medium text-gray-500 mb-3">
                         Suggested for you
                       </h3>
-                      <div className="flex gap-4 overflow-x-auto pb-2">
-                        {["mairaafaisal", "anna.saee0027", "mangat.ahmad"].map(
-                          (user, i) => (
-                            <div
-                              key={i}
-                              className="flex items-center gap-2 flex-shrink-0"
-                            >
-                              <div className="w-8 h-8 rounded-full bg-gray-300 flex items-center justify-center text-xs font-medium text-gray-600">
-                                {user.charAt(0).toUpperCase()}
-                              </div>
-                              <span className="text-sm text-gray-900 max-w-20 truncate">
-                                {user}
-                              </span>
-                            </div>
-                          )
-                        )}
-                      </div>
                     </div>
                   </div>
                 </>
