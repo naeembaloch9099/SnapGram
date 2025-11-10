@@ -193,6 +193,22 @@ const MessageChatBox = ({ conversationId }) => {
   const id = conversationId || params.id;
   const navigate = useNavigate();
 
+  // Helper: derive a presentable full name from a username when displayName is missing
+  const deriveFullName = (username) => {
+    if (!username) return null;
+    try {
+      // Replace non-letter/digit characters with spaces, split and capitalize each word
+      const cleaned = username.replace(/[^a-zA-Z0-9]+/g, " ").trim();
+      if (!cleaned) return username;
+      return cleaned
+        .split(/\s+/)
+        .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+        .join(" ");
+    } catch (e) {
+      console.log("Error deriving full name:", e);
+      return username;
+    }
+  };
   // --- UPDATED CONTEXT ---
   // We now get 'startCall' and 'call' from the context
   const {
@@ -473,15 +489,18 @@ const MessageChatBox = ({ conversationId }) => {
   return (
     <div className="flex flex-col h-full overflow-auto" ref={chatRef}>
       {/* HEADER (Updated with new onClick) */}
-      <div className="fixed top-0 left-0 right-0 z-50 md:relative md:top-0 bg-white">
+      <div className="chat-header fixed top-0 left-0 right-0 z-50 md:relative md:top-0 bg-white">
         <div
           className="p-3 border-b flex items-center gap-3"
           style={{ paddingTop: "env(safe-area-inset-top, 0px)" }}
         >
           <button
             className="md:hidden p-2"
+            aria-label="Back to home"
+            title="Back to home"
             onClick={() => {
-              navigate("/messages");
+              // navigate back to home (or change to another interesting page)
+              navigate("/");
             }}
           >
             <FiChevronLeft />
@@ -496,13 +515,20 @@ const MessageChatBox = ({ conversationId }) => {
             <div className="w-10 h-10 rounded-full bg-slate-200" />
           )}
           <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2">
-              <div className="font-medium truncate">
-                {otherUser?.displayName || otherUser?.username || "User"}
+            <div className="flex items-center gap-2 flex-col text-left">
+              {/* Top line: full name (displayName or derived from username) */}
+              <div className="font-medium truncate text-sm">
+                {otherUser?.displayName
+                  ? otherUser.displayName
+                  : deriveFullName(otherUser?.username) || "User"}
               </div>
-            </div>
-            <div className="text-xs text-slate-400 truncate">
-              @{(otherUser?.username || "user").toLowerCase()}
+              {/* Below: always show @username (fallback to lowercased displayName or 'user') */}
+              <div className="text-xs text-slate-400 truncate -mt-0.5">
+                @
+                {(otherUser?.username || otherUser?.displayName || "user")
+                  .toString()
+                  .toLowerCase()}
+              </div>
             </div>
           </div>
 
@@ -526,7 +552,7 @@ const MessageChatBox = ({ conversationId }) => {
       </div>
 
       {/* MESSAGES (Updated to style call messages) */}
-      <div className="p-4 flex-1 space-y-3 pt-16 pb-28 md:pt-4 md:pb-0">
+      <div className="messages-container p-4 flex-1 space-y-3 pt-16 pb-28 md:pt-4 md:pb-0">
         {messages.length === 0 ? (
           <div className="text-center text-slate-500 text-sm py-8">
             No messages yet. Start the conversation!
@@ -627,7 +653,7 @@ const MessageChatBox = ({ conversationId }) => {
       )}
 
       {/* INPUT BAR (Your old code, unchanged) */}
-      <div className="fixed bottom-0 left-0 right-0 z-40 md:relative md:bottom-0 bg-white">
+      <div className="message-input-container fixed bottom-0 left-0 right-0 z-40 md:relative md:bottom-0 bg-white">
         <div
           className="bg-white p-3 border-t flex items-center gap-2 max-w-full overflow-x-hidden"
           style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}

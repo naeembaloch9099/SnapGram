@@ -54,3 +54,29 @@
     animation: slideIn 0.3s ease-in-out;
   }
 }
+
+/* Messaging layout for large screens (desktop-like, >=1024px)
+   Matches Instagram-like two-column messaging UI.
+   Applies only at min-width: 1024px so mobile layout remains unchanged.
+*/
+@media (min-width: 1024px) {
+  .messaging-container {
+    @apply fixed inset-0 flex bg-white;
+  }
+  .chat-sidebar {
+    @apply w-80 border-r overflow-y-auto bg-white;
+    max-width: 350px;
+  }
+  .chat-main {
+    @apply flex-1 flex flex-col min-h-0; /* min-h-0 is important for flex children scrolling */
+  }
+  .chat-header {
+    @apply sticky top-0 z-10 bg-white border-b;
+  }
+  .messages-container {
+    @apply flex-1 overflow-y-auto p-4;
+  }
+  .message-input-container {
+    @apply sticky bottom-0 bg-white border-t p-4;
+  }
+}

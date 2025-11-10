@@ -38,10 +38,10 @@ const Messages = () => {
   }
 
   return (
-    <div className="max-w-5xl mx-auto p-0 md:p-4 flex gap-4 h-[calc(100vh-4rem)] md:h-auto">
+    <div className="max-w-5xl mx-auto p-0 md:p-4 flex gap-4 h-[calc(100vh-4rem)] md:h-auto messaging-container">
       {/* left: list (on small = full width when no convo selected; on md it's a column) */}
       <div
-        className={`w-full md:w-80 border-r bg-white h-full ${
+        className={`w-full md:w-80 border-r bg-white h-full chat-sidebar ${
           id ? "hidden md:block" : "block"
         }`}
       >
@@ -54,7 +54,7 @@ const Messages = () => {
       <div
         className={`${
           id ? "flex-1 block" : "hidden md:flex-1 md:block"
-        } bg-white h-full`}
+        } bg-white h-full chat-main`}
       >
         <MessageChatBox conversationId={id} />
       </div>
