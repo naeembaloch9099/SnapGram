@@ -15,7 +15,7 @@ import {
   FiPlay,
   FiCamera,
 } from "react-icons/fi";
-import Loader from "../../components/Loader";
+import ProfileSkeleton from "../../components/ProfileSkeleton";
 
 const Profile = () => {
   const { activeUser: me } = useContext(AuthContext);
@@ -159,6 +159,11 @@ const Profile = () => {
         </Link>
       </div>
     );
+  }
+
+  // While we're fetching the profile data, show the full-page loader/skeleton
+  if (loadingUser) {
+    return <ProfileSkeleton />;
   }
 
   // Determine display name and profile image with fallbacks for older keys

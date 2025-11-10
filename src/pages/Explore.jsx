@@ -157,28 +157,49 @@ const Explore = () => {
   const handleSearchChange = (e) => {
     const v = e.target.value;
     setSearchQuery(v);
+    // clear any existing debounce
     if (debounceRef.current) clearTimeout(debounceRef.current);
+
+    // If input is empty, clear suggestions and hide dropdown
     if (!v.trim()) {
       setSuggestions([]);
       setShowSuggestions(false);
+      setSuggestionsLoading(false);
       return;
     }
+
+    // Start a debounced fetch but show a loader for at least 200ms for better UX
+    const MIN_VISIBLE_MS = 200;
+    // mark loading immediately so the UI shows a spinner while debouncing
+    setSuggestionsLoading(true);
+    const start = Date.now();
+
     debounceRef.current = setTimeout(async () => {
-      setSuggestionsLoading(true);
       try {
         const res = await api.get(
           `/users/search?q=${encodeURIComponent(v.trim())}`
         );
-        setSuggestions(res.data.results || []);
-        setShowSuggestions(true);
+        const results = res.data.results || [];
+        const elapsed = Date.now() - start;
+        const remaining = Math.max(0, MIN_VISIBLE_MS - elapsed);
+        // ensure loader is visible for the minimum time before showing results
+        setTimeout(() => {
+          setSuggestions(results);
+          setShowSuggestions(results.length > 0);
+          setSuggestionsLoading(false);
+        }, remaining);
       } catch (e) {
         console.debug("search error", e);
-        setSuggestions([]);
-        setShowSuggestions(false);
-      } finally {
-        setSuggestionsLoading(false);
+        // hide dropdown if error
+        const elapsed = Date.now() - start;
+        const remaining = Math.max(0, MIN_VISIBLE_MS - elapsed);
+        setTimeout(() => {
+          setSuggestions([]);
+          setShowSuggestions(false);
+          setSuggestionsLoading(false);
+        }, remaining);
       }
-    }, 300);
+    }, 200);
   };
 
   const filteredPosts = searchQuery

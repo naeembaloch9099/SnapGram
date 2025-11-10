@@ -6,6 +6,7 @@ import { AuthContext } from "../context/AuthContext";
 const SuggestionRow = ({ suggestion, onToggle }) => {
   const [loading, setLoading] = useState(false);
   const [state, setState] = useState(suggestion);
+  const [navLoading, setNavLoading] = useState(false);
   const navigate = useNavigate();
   const { activeUser } = useContext(AuthContext);
 
@@ -107,8 +108,23 @@ const SuggestionRow = ({ suggestion, onToggle }) => {
             <Link
               to={`/profile/${state.username}`}
               className="font-semibold text-sm truncate block"
+              onClick={(e) => {
+                // show a small inline loader before navigation for perceived speed
+                // prevent default and navigate programmatically after a tiny delay
+                e.preventDefault();
+                if (navLoading) return;
+                setNavLoading(true);
+                setTimeout(() => navigate(`/profile/${state.username}`), 120);
+              }}
             >
-              {state.username}
+              {navLoading ? (
+                <span
+                  className="inline-block w-4 h-4 border-2 border-t-transparent border-white rounded-full animate-spin"
+                  aria-hidden="true"
+                />
+              ) : (
+                state.username
+              )}
             </Link>
             <div className="text-xs text-gray-500 truncate">
               {state.displayName || ""}
