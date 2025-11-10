@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from "react";
 import api from "../services/api";
 import SuggestionRow from "../components/SuggestionRow";
 import { FiSearch, FiX, FiHeart, FiMessageCircle } from "react-icons/fi";
+import Loader from "../components/Loader";
 
 // 30 Random placeholder videos (free stock from Pexels via Vimeo)
 const RANDOM_VIDEOS = [
@@ -46,7 +47,9 @@ const Explore = () => {
   const [suggestions, setSuggestions] = useState([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const debounceRef = useRef(null);
+  const [suggestionsLoading, setSuggestionsLoading] = useState(false);
   const [posts, setPosts] = useState([]);
+  const [postsLoading, setPostsLoading] = useState(true);
 
   // Generate 30 random posts
   useEffect(() => {
@@ -60,7 +63,13 @@ const Explore = () => {
         comments: Math.floor(Math.random() * 200),
       };
     });
-    setPosts(generated);
+    // simulate a short load so the skeleton/loader is visible on slow networks
+    const t = setTimeout(() => {
+      setPosts(generated);
+      setPostsLoading(false);
+    }, 300);
+
+    return () => clearTimeout(t);
   }, []);
 
   // Filter by caption (we'll use random captions)
@@ -93,6 +102,7 @@ const Explore = () => {
                     return;
                   }
                   debounceRef.current = setTimeout(async () => {
+                    setSuggestionsLoading(true);
                     try {
                       const res = await api.get(
                         `/users/search?q=${encodeURIComponent(v.trim())}`
@@ -103,6 +113,8 @@ const Explore = () => {
                       console.debug("search error", e?.message || e);
                       setSuggestions([]);
                       setShowSuggestions(false);
+                    } finally {
+                      setSuggestionsLoading(false);
                     }
                   }, 300);
                 }}
@@ -122,24 +134,34 @@ const Explore = () => {
                 </button>
               )}
               {/* Suggestions dropdown */}
-              {showSuggestions && suggestions.length > 0 && (
+              {showSuggestions && (
                 <div className="absolute left-0 right-0 mt-2 bg-white border rounded-lg shadow-lg z-50 max-h-72 overflow-auto">
-                  {suggestions.map((s) => (
-                    <SuggestionRow
-                      key={s._id || s.username}
-                      suggestion={s}
-                      onToggle={async (updated) => {
-                        // optimistic update of local suggestion state
-                        setSuggestions((prev) =>
-                          prev.map((p) =>
-                            p.username === updated.username
-                              ? { ...p, ...updated }
-                              : p
-                          )
-                        );
-                      }}
-                    />
-                  ))}
+                  {suggestionsLoading ? (
+                    <div className="p-4">
+                      <Loader />
+                    </div>
+                  ) : suggestions.length > 0 ? (
+                    suggestions.map((s) => (
+                      <SuggestionRow
+                        key={s._id || s.username}
+                        suggestion={s}
+                        onToggle={async (updated) => {
+                          // optimistic update of local suggestion state
+                          setSuggestions((prev) =>
+                            prev.map((p) =>
+                              p.username === updated.username
+                                ? { ...p, ...updated }
+                                : p
+                            )
+                          );
+                        }}
+                      />
+                    ))
+                  ) : (
+                    <div className="p-4 text-sm text-gray-600">
+                      No users found
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -149,7 +171,11 @@ const Explore = () => {
 
       {/* Grid */}
       <div className="max-w-5xl mx-auto p-1 bg-white">
-        {displayPosts.length === 0 ? (
+        {postsLoading ? (
+          <div className="py-8">
+            <Loader />
+          </div>
+        ) : displayPosts.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-96 text-gray-500">
             <FiSearch className="w-16 h-16 mb-4 opacity-50" />
             <p className="text-lg">No results found</p>
