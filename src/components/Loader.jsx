@@ -1,7 +1,7 @@
 // src/components/Loader.jsx
 import React from "react";
 
-/* ---------- Shimmer keyframes (in-file) ---------- */
+/* ---------- Shimmer keyframes (used only on desktop) ---------- */
 const shimmerStyle = `
   @keyframes shimmer {
     0%   { background-position: -200% 0; }
@@ -17,7 +17,7 @@ const shimmerStyle = `
   }
 `;
 
-/* ---------- Re-usable shimmer block ---------- */
+/* ---------- Re‑usable shimmer block (desktop only) ---------- */
 const ShimmerBlock = ({
   w = "w-full",
   h = "h-4",
@@ -29,21 +29,36 @@ const ShimmerBlock = ({
   />
 );
 
-/* ---------- Icon placeholder ---------- */
+/* ---------- Icon placeholder (desktop only) ---------- */
 const Icon = ({ size = "w-6 h-6", className = "" }) => (
   <div
     className={`${size} bg-gray-300 dark:bg-gray-600 rounded animate-shimmer ${className}`}
   />
 );
 
-/* ---------- MAIN LOADER COMPONENT ---------- */
+/* ---------- BEAUTIFUL MOBILE LOADER ---------- */
+const MobileLoader = () => (
+  <div className="lg:hidden flex flex-col items-center justify-center min-h-screen bg-gray-50 dark:bg-black p-6">
+    <div className="relative">
+      {/* Outer pulse ring */}
+      <div className="w-16 h-16 border-4 border-gray-200 dark:border-gray-700 rounded-full animate-pulse"></div>
+      {/* Inner spinner */}
+      <div className="absolute inset-0 w-16 h-16 border-4 border-t-blue-500 border-r-transparent border-b-transparent border-l-transparent rounded-full animate-spin"></div>
+    </div>
+    <p className="mt-6 text-sm text-gray-600 dark:text-gray-400 font-medium animate-pulse">
+      Loading........
+    </p>
+  </div>
+);
+
+/* ---------- MAIN COMPONENT ---------- */
 const SnapGramSkeletonLoader = () => {
   return (
     <>
-      {/* inject keyframes */}
+      {/* inject shimmer keyframes (only needed for desktop) */}
       <style dangerouslySetInnerHTML={{ __html: shimmerStyle }} />
 
-      {/* ----- DESKTOP ONLY (lg and larger) ----- */}
+      {/* ----- DESKTOP SKELETON (lg and larger) ----- */}
       <div className="hidden lg:flex min-h-screen bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100 flex-col">
         {/* Header */}
         <header className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 sticky top-0 z-50">
@@ -179,8 +194,8 @@ const SnapGramSkeletonLoader = () => {
         </div>
       </div>
 
-      {/* ----- MOBILE: nothing (replace with real UI later) ----- */}
-      <div className="lg:hidden">{/* <YourRealMobileComponent /> */}</div>
+      {/* ----- MOBILE: beautiful animated loader ----- */}
+      <MobileLoader />
     </>
   );
 };

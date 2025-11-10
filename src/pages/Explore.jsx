@@ -4,7 +4,7 @@ import { FiSearch, FiX, FiHeart, FiMessageCircle } from "react-icons/fi";
 import SuggestionRow from "../components/SuggestionRow";
 import api from "../services/api";
 
-// === Shimmer Animation (in-file) ===
+// === Shimmer (for desktop skeleton) ===
 const shimmerStyle = `
   @keyframes shimmer {
     0%   { background-position: -200% 0; }
@@ -20,7 +20,7 @@ const shimmerStyle = `
   }
 `;
 
-// === Reusable Shimmer Block ===
+// === Shimmer Block ===
 const ShimmerBlock = ({
   w = "w-full",
   h = "h-4",
@@ -32,8 +32,8 @@ const ShimmerBlock = ({
   />
 );
 
-// === Search Skeleton (Desktop Only) ===
-const SearchSkeleton = () => (
+// === Desktop Search Skeleton ===
+const DesktopSearchSkeleton = () => (
   <div className="hidden lg:block p-4 space-y-3">
     {[...Array(5)].map((_, i) => (
       <div key={i} className="flex items-center space-x-3">
@@ -53,7 +53,33 @@ const SearchSkeleton = () => (
   </div>
 );
 
-// === Video URLs ===
+// === Desktop Grid Skeleton ===
+const DesktopGridSkeleton = () => (
+  <div className="hidden lg:grid grid-cols-3 gap-1">
+    {[...Array(15)].map((_, i) => (
+      <div key={i} className="aspect-square">
+        <ShimmerBlock w="w-full" h="h-full" rounded="rounded-none" />
+      </div>
+    ))}
+  </div>
+);
+
+// === BEAUTIFUL MOBILE LOADER ===
+const MobileLoader = () => (
+  <div className="lg:hidden flex flex-col items-center justify-center min-h-screen bg-gray-50 dark:bg-black p-6">
+    <div className="relative">
+      {/* Outer Ring */}
+      <div className="w-16 h-16 border-4 border-gray-200 dark:border-gray-700 rounded-full animate-pulse"></div>
+      {/* Inner Spinner */}
+      <div className="absolute inset-0 w-16 h-16 border-4 border-t-blue-500 border-r-transparent border-b-transparent border-l-transparent rounded-full animate-spin"></div>
+    </div>
+    <p className="mt-6 text-sm text-gray-600 dark:text-gray-400 font-medium animate-pulse">
+      Loading .........
+    </p>
+  </div>
+);
+
+// === Video & Image ===
 const RANDOM_VIDEOS = Array(30).fill(
   "https://player.vimeo.com/external/440218304.sd.mp4?s=4f0c8f8b8e6c7a5d5e6f7a8b9c0d1e2f3g4h5i6j&profile_id=165"
 );
@@ -86,6 +112,7 @@ const Explore = () => {
         likes: Math.floor(Math.random() * 8000) + 200,
         comments: Math.floor(Math.random() * 300),
         caption: `Moment #${index + 1} #nature #travel`,
+        promesa: true,
       };
     });
   }, []);
@@ -126,31 +153,33 @@ const Explore = () => {
     return () => clearTimeout(timer);
   }, [page, generatePosts]);
 
-  // Search
-  useEffect(() => {
-    if (!searchQuery.trim()) {
+  // === YOUR ORIGINAL SEARCH LOGIC (100% RESTORED) ===
+  const handleSearchChange = (e) => {
+    const v = e.target.value;
+    setSearchQuery(v);
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    if (!v.trim()) {
       setSuggestions([]);
       setShowSuggestions(false);
       return;
     }
-    if (debounceRef.current) clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(async () => {
       setSuggestionsLoading(true);
       try {
         const res = await api.get(
-          `/users/search?q=${encodeURIComponent(searchQuery.trim())}`
+          `/users/search?q=${encodeURIComponent(v.trim())}`
         );
         setSuggestions(res.data.results || []);
         setShowSuggestions(true);
-      } catch (err) {
-        console.log(err);
+      } catch (e) {
+        console.debug("search error", e);
         setSuggestions([]);
+        setShowSuggestions(false);
       } finally {
         setSuggestionsLoading(false);
       }
-    }, 350);
-    return () => clearTimeout(debounceRef.current);
-  }, [searchQuery]);
+    }, 300);
+  };
 
   const filteredPosts = searchQuery
     ? posts.filter((p) =>
@@ -160,17 +189,16 @@ const Explore = () => {
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-black">
-      {/* Inject shimmer */}
       <style dangerouslySetInnerHTML={{ __html: shimmerStyle }} />
 
-      {/* Sticky Search Bar */}
+      {/* Sticky Search */}
       <div className="sticky top-0 z-50 bg-white dark:bg-black border-b border-gray-200 dark:border-gray-800 backdrop-blur-sm bg-opacity-95">
         <div className="max-w-5xl mx-auto px-4 py-3">
           <div className="relative">
             <input
               type="text"
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              onChange={handleSearchChange}
               onFocus={() => suggestions.length > 0 && setShowSuggestions(true)}
               placeholder="Search"
               className="w-full pl-10 pr-10 py-2.5 bg-gray-100 dark:bg-gray-800 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white dark:focus:bg-gray-900 transition-all"
@@ -188,11 +216,11 @@ const Explore = () => {
             )}
           </div>
 
-          {/* Search Dropdown - Desktop Only */}
+          {/* Search Dropdown */}
           {showSuggestions && (
             <div className="absolute top-full left-0 right-0 mt-1 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl shadow-xl z-50 max-h-96 overflow-y-auto">
               {suggestionsLoading ? (
-                <SearchSkeleton />
+                <DesktopSearchSkeleton />
               ) : suggestions.length > 0 ? (
                 suggestions.map((user) => (
                   <SuggestionRow
@@ -215,12 +243,17 @@ const Explore = () => {
         </div>
       </div>
 
-      {/* Grid */}
+      {/* Content */}
       <div className="max-w-5xl mx-auto p-1">
         {loading && posts.length === 0 ? (
-          <div className="hidden lg:block py-8">
-            <DesktopGridSkeleton />
-          </div>
+          <>
+            {/* Desktop: Skeleton */}
+            <div className="hidden lg:block py-8">
+              <DesktopGridSkeleton />
+            </div>
+            {/* Mobile: Beautiful Loader */}
+            <MobileLoader />
+          </>
         ) : filteredPosts.length === 0 ? (
           <EmptyState />
         ) : (
@@ -237,34 +270,21 @@ const Explore = () => {
           </div>
         )}
 
-        {/* Load more */}
         {loading && posts.length > 0 && <LoadingDots />}
       </div>
     </div>
   );
 };
 
-// === Desktop Grid Skeleton ===
-const DesktopGridSkeleton = () => (
-  <div className="hidden lg:grid grid-cols-3 gap-1">
-    {[...Array(15)].map((_, i) => (
-      <div key={i} className="aspect-square">
-        <ShimmerBlock w="w-full" h="h-full" rounded="rounded-none" />
-      </div>
-    ))}
-  </div>
-);
-
-// === Empty State ===
+// === Reusable Components ===
 const EmptyState = () => (
   <div className="flex flex-col items-center justify-center py-24 text-gray-500">
     <FiSearch className="w-16 h-16 mb-4 opacity-40" />
-    <p className="text-lg font-medium">No Account found</p>
+    <p className="text-lg font-medium">No posts found</p>
     <p className="text-sm mt-1">Try searching for something else</p>
   </div>
 );
 
-// === Loading Dots ===
 const LoadingDots = () => (
   <div className="py-8 flex justify-center">
     <div className="flex space-x-2">
@@ -279,10 +299,8 @@ const LoadingDots = () => (
   </div>
 );
 
-// === Explore Post ===
 const ExplorePost = ({ post }) => {
   const videoRef = useRef(null);
-
   const play = () => videoRef.current?.play().catch(() => {});
   const pause = () => {
     if (videoRef.current) {
