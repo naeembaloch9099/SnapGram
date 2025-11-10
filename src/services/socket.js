@@ -47,22 +47,48 @@ export function getSocket() {
 }
 
 export function joinRoom(room) {
-  if (!socket) return;
+  if (!socket) {
+    // ensure socket is initialized and connected
+    return initSocket().then((s) => {
+      if (!s) return;
+      s.emit("join", { room });
+    });
+  }
   socket.emit("join", { room });
 }
 
 export function leaveRoom(room) {
-  if (!socket) return;
+  if (!socket) {
+    return initSocket().then((s) => {
+      if (!s) return;
+      s.emit("leave", { room });
+    });
+  }
   socket.emit("leave", { room });
 }
 
 export function on(event, cb) {
-  if (!socket) return () => {};
+  if (!socket) {
+    // wait for socket then attach
+    let off = () => {};
+    initSocket().then((s) => {
+      if (!s) return;
+      s.on(event, cb);
+      off = () => s.off(event, cb);
+    });
+    return () => off();
+  }
   socket.on(event, cb);
   return () => socket.off(event, cb);
 }
 
 export function emit(event, payload) {
-  if (!socket) return;
+  if (!socket) {
+    // ensure socket is ready then emit
+    return initSocket().then((s) => {
+      if (!s) return;
+      s.emit(event, payload);
+    });
+  }
   socket.emit(event, payload);
 }

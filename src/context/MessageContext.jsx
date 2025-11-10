@@ -228,7 +228,11 @@ export const MessageProvider = ({ children }) => {
       if (s && userId) {
         try {
           // Join a room for this user so server can emit personal events
-          joinRoom(userId);
+          // join via both channels to be resilient: 'join' and 'authenticate'
+          joinRoom(userId).catch((e) => console.warn("joinRoom error", e));
+          // notifier listens for 'authenticate' as well
+          s.emit("authenticate", userId);
+          console.log("socket: authenticated & joined room", userId, s.id);
         } catch (e) {
           console.log(e);
         }
