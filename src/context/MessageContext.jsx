@@ -217,19 +217,22 @@ export const MessageProvider = ({ children }) => {
   // --- This useEffect is UPDATED ---
   useEffect(() => {
     if (!activeUser) return;
-    initSocket(
-      import.meta.env.VITE_API_URL ||
-        "https://snapserver-production.up.railway.app"
-    );
-
-    const userId = activeUser.id || activeUser._id;
-    if (userId) {
-      try {
-        joinRoom(userId);
-      } catch (e) {
-        console.log(e);
+    // Initialize socket and wait for it to be ready before joining
+    (async () => {
+      const s = await initSocket(
+        import.meta.env.VITE_API_URL ||
+          "https://snapserver-production.up.railway.app"
+      );
+      const userId = activeUser.id || activeUser._id;
+      if (s && userId) {
+        try {
+          // Join a room for this user so server can emit personal events
+          joinRoom(userId);
+        } catch (e) {
+          console.log(e);
+        }
       }
-    }
+    })();
 
     // --- (Your old call listeners are unchanged) ---
     const offCallIncoming = socketOn("call:incoming", (callOffer) => {

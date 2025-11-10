@@ -1,9 +1,17 @@
 let socket = null;
 
 export function initSocket(baseUrl) {
-  if (socket) return socket;
-  // dynamic import - non-blocking
-  import("socket.io-client")
+  // Return a promise that resolves when the socket is connected.
+  if (socket && socket.connected) return Promise.resolve(socket);
+  if (socket && !socket.connected) {
+    // If socket exists but not yet connected, wait for connect event.
+    return new Promise((resolve) => {
+      socket.once("connect", () => resolve(socket));
+    });
+  }
+
+  // dynamic import - return a promise
+  return import("socket.io-client")
     .then(({ io }) => {
       try {
         socket = io(
@@ -15,9 +23,13 @@ export function initSocket(baseUrl) {
         );
         socket.on("connect", () => console.log("socket connected", socket.id));
         socket.on("disconnect", () => console.log("socket disconnected"));
+        return new Promise((resolve) => {
+          socket.once("connect", () => resolve(socket));
+        });
       } catch (err) {
         console.warn("socket init failed", err);
         socket = null;
+        return Promise.resolve(null);
       }
     })
     .catch((err) => {
@@ -26,8 +38,8 @@ export function initSocket(baseUrl) {
         err
       );
       socket = null;
+      return Promise.resolve(null);
     });
-  return socket;
 }
 
 export function getSocket() {
