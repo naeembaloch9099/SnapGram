@@ -570,15 +570,19 @@ const MessageChatBox = ({ conversationId }) => {
             return (
               <div
                 key={m._id || m.id}
-                className={
-                  m.text?.startsWith("[call-")
-                    ? "text-center text-slate-500 text-xs my-4"
-                    : `max-w-[80%] ${
-                        isFromMe
-                          ? "ml-auto bg-purple-600 text-white"
-                          : "bg-slate-100 text-slate-800"
-                      } p-3 rounded-lg`
-                }
+                className={(() => {
+                  const isCall = m.text?.startsWith("[call-");
+                  const hasMedia = !!m.media || !!m.mediaUrl;
+                  // If this is a call/system message without media, keep it centered small text.
+                  if (isCall && !hasMedia)
+                    return "text-center text-slate-500 text-xs my-4";
+                  // Otherwise render as a normal chat bubble (left or right aligned).
+                  return `max-w-[80%] ${
+                    isFromMe
+                      ? "ml-auto bg-purple-600 text-white"
+                      : "bg-slate-100 text-slate-800"
+                  } p-3 rounded-lg`;
+                })()}
               >
                 <MessageContent message={m} />
                 {!m.text?.startsWith("[call-") && (

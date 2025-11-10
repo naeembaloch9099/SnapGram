@@ -49,6 +49,7 @@ const Sidebar = () => {
               return (
                 <button
                   key={it.label}
+                  aria-label={it.label}
                   onMouseEnter={() => {
                     // prefetch notifications data and module
                     qc.prefetchQuery({
@@ -81,6 +82,7 @@ const Sidebar = () => {
               <NavLink
                 key={it.label}
                 to={it.to}
+                aria-label={it.label}
                 onMouseEnter={() => {
                   // prefetch conversations data and the messages route chunk
                   qc.prefetchQuery({
@@ -91,6 +93,30 @@ const Sidebar = () => {
                       ),
                   });
                   import("../pages/Messages/Messages");
+
+                  // also prefetch posts/feed when hovering Home/Explore to improve page switch
+                  if (it.to === "/" || it.to === "/explore") {
+                    qc.prefetchQuery({
+                      queryKey: ["posts", { page: 1 }],
+                      queryFn: () =>
+                        import("../services/postService").then((m) =>
+                          m.fetchPosts().then((r) => r.data)
+                        ),
+                    });
+                    import("../pages/Explore");
+                  }
+
+                  // prefetch profile data when hovering Profile link
+                  if (it.to === "/profile/me") {
+                    qc.prefetchQuery({
+                      queryKey: ["profile", { username: "me" }],
+                      queryFn: () =>
+                        import("../services/userService").then((m) =>
+                          m.fetchProfile("me").then((r) => r.data)
+                        ),
+                    });
+                    import("../pages/Profile/Profile");
+                  }
                 }}
                 className={({ isActive }) =>
                   `flex items-center gap-3 py-2 px-3 rounded hover:bg-slate-100 ${
