@@ -5,6 +5,8 @@ import { fetchNotifications } from "../services/notificationService";
 import { NotificationsList } from "../components/NotificationsDrawer";
 import { useNotifications } from "../context/NotificationContext";
 import { AuthContext } from "../context/AuthContext";
+import Loader from "../components/Loader";
+import SpinnerInline from "../components/SpinnerInline";
 
 // Full-screen notifications page (mobile)
 const FullNotifications = () => {
@@ -56,7 +58,9 @@ const FullNotifications = () => {
             </Link>
             <h1 className="text-2xl font-semibold">Notifications</h1>
           </div>
-          <div className="text-center text-slate-500 py-8">Loading user...</div>
+          <div className="text-center text-slate-500 py-8">
+            <Loader fullScreen={false} size="md" />
+          </div>
         </div>
       </div>
     );
@@ -82,7 +86,9 @@ const FullNotifications = () => {
         </div>
 
         {loading ? (
-          <div className="text-center py-8 text-slate-500">Loading...</div>
+          <div className="py-8">
+            <Loader fullScreen={false} size="md" />
+          </div>
         ) : (
           <NotificationsList
             data={data}

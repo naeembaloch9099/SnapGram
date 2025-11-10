@@ -6,6 +6,8 @@ import { FiX } from "react-icons/fi";
 import { formatDate } from "../utils/formatDate";
 import api from "../services/api";
 import { followUser } from "../services/userService";
+import Loader from "./Loader";
+import SpinnerInline from "./SpinnerInline";
 
 const STORAGE_KEY = "snapgram.notifications.state";
 
@@ -517,7 +519,8 @@ const NotificationsList = ({
         } else if (n.meta?.actorUsername) {
           user = n.meta.actorUsername;
         } else if (typeof actor === "string") {
-          user = "Loading...";
+          // actor provided as ID string, show neutral placeholder while resolving
+          user = "User";
         }
         const avatar = (actor && actor.avatar) || n.meta?.actorAvatar || null;
         let text = "";
@@ -915,7 +918,9 @@ const NotificationsDrawer = () => {
               </button>
             </div>
             {loading ? (
-              <div className="text-sm text-slate-500">Loading...</div>
+              <div className="py-6">
+                <Loader fullScreen={false} size="md" />
+              </div>
             ) : (
               <NotificationsList
                 data={dataList}

@@ -18,6 +18,7 @@ import {
 // --- NEW CODE (FOR VIDEO/AUDIO CALLS) ---
 // We get the new 'startCall' and 'call' state from the context
 import { MessageContext } from "../context/MessageContext";
+import ChatSkeleton from "./ChatSkeleton";
 import { AuthContext } from "../context/AuthContext";
 // --- YOUR PREVIOUS CODE (FOR TEXT/IMAGE/VOICE) ---
 import { sendMessage } from "../services/messageService";
@@ -477,11 +478,10 @@ const MessageChatBox = ({ conversationId }) => {
   }
 
   if (!currentConversation || !otherUser) {
+    // Show a structured skeleton while the conversation loads
     return (
-      <div className="flex-1 flex items-center justify-center h-full">
-        <div className="text-center">
-          <p className="text-slate-500">Loading conversation...</p>
-        </div>
+      <div className="flex-1 flex flex-col h-full">
+        <ChatSkeleton />
       </div>
     );
   }

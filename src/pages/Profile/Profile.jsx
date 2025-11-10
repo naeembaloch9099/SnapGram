@@ -15,6 +15,7 @@ import {
   FiPlay,
   FiCamera,
 } from "react-icons/fi";
+import Loader from "../../components/Loader";
 
 const Profile = () => {
   const { activeUser: me } = useContext(AuthContext);
@@ -1263,7 +1264,9 @@ const FollowRequestsModal = ({ onClose, owner, showToast, refreshProfile }) => {
 
       <div className="flex-1 overflow-y-auto px-4 py-4">
         {loading ? (
-          <div className="text-center text-gray-500">Loading...</div>
+          <div className="py-6">
+            <Loader fullScreen={false} size="sm" />
+          </div>
         ) : requesters.length === 0 ? (
           <div className="text-center text-gray-500">No requests</div>
         ) : (

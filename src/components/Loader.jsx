@@ -1,7 +1,7 @@
 import React from "react";
 import { FiLoader } from "react-icons/fi";
 
-const Loader = ({ size = "md", fullScreen = false }) => {
+const Loader = ({ size = "md", fullScreen = false, label = "" }) => {
   const sizeClasses = {
     sm: "w-6 h-6",
     md: "w-10 h-10",
@@ -44,10 +44,16 @@ const Loader = ({ size = "md", fullScreen = false }) => {
         </div>
       </div>
 
-      {/* Optional Text */}
-      <p className="mt-6 text-sm font-medium text-gray-600 animate-pulse">
-        Loading...
-      </p>
+      {/* Optional Text (render only when a label is provided) */}
+      {label ? (
+        <p
+          className="mt-6 text-sm font-medium text-gray-600 animate-pulse"
+          role="status"
+          aria-live="polite"
+        >
+          {label}
+        </p>
+      ) : null}
     </div>
   );
 };

@@ -10,6 +10,7 @@ import {
 } from "react-icons/fi";
 import { AuthContext } from "../context/AuthContext";
 import { MessageContext } from "../context/MessageContext";
+import MessageSkeleton from "./MessageSkeleton";
 import MessageSearch from "./MessageSearch";
 
 // 📅 Format time difference
@@ -119,9 +120,10 @@ const MessageList = ({ showHeader = true, embedded = false }) => {
 
       <div className="flex-1 overflow-auto divide-y">
         {loading ? (
-          <div className="p-4 text-center text-slate-500 text-sm">
-            Loading...
-          </div>
+          // show multiple skeleton rows while loading
+          Array(6)
+            .fill(0)
+            .map((_, i) => <MessageSkeleton key={i} />)
         ) : filtered.length === 0 ? (
           <div className="p-4 text-center text-slate-500 text-sm">
             No conversations yet

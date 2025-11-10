@@ -1,6 +1,8 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import "./index.css";
+// Skeleton CSS for react-loading-skeleton
+import "react-loading-skeleton/dist/skeleton.css";
 import App from "./App.jsx";
 
 // Optional: disable console output in the frontend when VITE_DISABLE_CONSOLE is set to 'true'

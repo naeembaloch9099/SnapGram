@@ -1,4 +1,5 @@
 import React, { Suspense, lazy, useContext } from "react";
+import Loader from "../components/Loader";
 import { Routes, Route, Navigate } from "react-router-dom";
 import { AuthContext } from "../context/AuthContext";
 import MainLayout from "../layout/MainLayout";
@@ -30,7 +31,7 @@ const AppRoutes = () => {
   const { activeUser } = useContext(AuthContext);
 
   return (
-    <Suspense fallback={<div>Loading...</div>}>
+    <Suspense fallback={<Loader fullScreen={true} size="lg" />}>
       <Routes>
         {/* If not authenticated, only expose auth routes and redirect everything to /login */}
         {!activeUser ? (
