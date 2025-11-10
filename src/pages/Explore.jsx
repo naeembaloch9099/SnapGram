@@ -1,208 +1,290 @@
-import React, { useState, useEffect, useRef } from "react";
-import api from "../services/api";
-import SuggestionRow from "../components/SuggestionRow";
+// src/pages/Explore.jsx
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { FiSearch, FiX, FiHeart, FiMessageCircle } from "react-icons/fi";
-import Loader from "../components/Loader";
+import SuggestionRow from "../components/SuggestionRow";
+import api from "../services/api";
 
-// 30 Random placeholder videos (free stock from Pexels via Vimeo)
-const RANDOM_VIDEOS = [
-  "https://player.vimeo.com/external/440218304.sd.mp4?s=4f0c8f8b8e6c7a5d5e6f7a8b9c0d1e2f3g4h5i6j&profile_id=165",
-  "https://player.vimeo.com/external/440218304.sd.mp4?s=4f0c8f8b8e6c7a5d5e6f7a8b9c0d1e2f3g4h5i6j&profile_id=165",
-  "https://player.vimeo.com/external/440218304.sd.mp4?s=4f0c8f8b8e6c7a5d5e6f7a8b9c0d1e2f3g4h5i6j&profile_id=165",
-  "https://player.vimeo.com/external/440218304.sd.mp4?s=4f0c8f8b8e6c7a5d5e6f7a8b9c0d1e2f3g4h5i6j&profile_id=165",
-  "https://player.vimeo.com/external/440218304.sd.mp4?s=4f0c8f8b8e6c7a5d5e6f7a8b9c0d1e2f3g4h5i6j&profile_id=165",
-  "https://player.vimeo.com/external/440218304.sd.mp4?s=4f0c8f8b8e6c7a5d5e6f7a8b9c0d1e2f3g4h5i6j&profile_id=165",
-  "https://player.vimeo.com/external/440218304.sd.mp4?s=4f0c8f8b8e6c7a5d5e6f7a8b9c0d1e2f3g4h5i6j&profile_id=165",
-  "https://player.vimeo.com/external/440218304.sd.mp4?s=4f0c8f8b8e6c7a5d5e6f7a8b9c0d1e2f3g4h5i6j&profile_id=165",
-  "https://player.vimeo.com/external/440218304.sd.mp4?s=4f0c8f8b8e6c7a5d5e6f7a8b9c0d1e2f3g4h5i6j&profile_id=165",
-  "https://player.vimeo.com/external/440218304.sd.mp4?s=4f0c8f8b8e6c7a5d5e6f7a8b9c0d1e2f3g4h5i6j&profile_id=165",
-  "https://player.vimeo.com/external/440218304.sd.mp4?s=4f0c8f8b8e6c7a5d5e6f7a8b9c0d1e2f3g4h5i6j&profile_id=165",
-  "https://player.vimeo.com/external/440218304.sd.mp4?s=4f0c8f8b8e6c7a5d5e6f7a8b9c0d1e2f3g4h5i6j&profile_id=165",
-  "https://player.vimeo.com/external/440218304.sd.mp4?s=4f0c8f8b8e6c7a5d5e6f7a8b9c0d1e2f3g4h5i6j&profile_id=165",
-  "https://player.vimeo.com/external/440218304.sd.mp4?s=4f0c8f8b8e6c7a5d5e6f7a8b9c0d1e2f3g4h5i6j&profile_id=165",
-  "https://player.vimeo.com/external/440218304.sd.mp4?s=4f0c8f8b8e6c7a5d5e6f7a8b9c0d1e2f3g4h5i6j&profile_id=165",
-  "https://player.vimeo.com/external/440218304.sd.mp4?s=4f0c8f8b8e6c7a5d5e6f7a8b9c0d1e2f3g4h5i6j&profile_id=165",
-  "https://player.vimeo.com/external/440218304.sd.mp4?s=4f0c8f8b8e6c7a5d5e6f7a8b9c0d1e2f3g4h5i6j&profile_id=165",
-  "https://player.vimeo.com/external/440218304.sd.mp4?s=4f0c8f8b8e6c7a5d5e6f7a8b9c0d1e2f3g4h5i6j&profile_id=165",
-  "https://player.vimeo.com/external/440218304.sd.mp4?s=4f0c8f8b8e6c7a5d5e6f7a8b9c0d1e2f3g4h5i6j&profile_id=165",
-  "https://player.vimeo.com/external/440218304.sd.mp4?s=4f0c8f8b8e6c7a5d5e6f7a8b9c0d1e2f3g4h5i6j&profile_id=165",
-  "https://player.vimeo.com/external/440218304.sd.mp4?s=4f0c8f8b8e6c7a5d5e6f7a8b9c0d1e2f3g4h5i6j&profile_id=165",
-  "https://player.vimeo.com/external/440218304.sd.mp4?s=4f0c8f8b8e6c7a5d5e6f7a8b9c0d1e2f3g4h5i6j&profile_id=165",
-  "https://player.vimeo.com/external/440218304.sd.mp4?s=4f0c8f8b8e6c7a5d5e6f7a8b9c0d1e2f3g4h5i6j&profile_id=165",
-  "https://player.vimeo.com/external/440218304.sd.mp4?s=4f0c8f8b8e6c7a5d5e6f7a8b9c0d1e2f3g4h5i6j&profile_id=165",
-  "https://player.vimeo.com/external/440218304.sd.mp4?s=4f0c8f8b8e6c7a5d5e6f7a8b9c0d1e2f3g4h5i6j&profile_id=165",
-  "https://player.vimeo.com/external/440218304.sd.mp4?s=4f0c8f8b8e6c7a5d5e6f7a8b9c0d1e2f3g4h5i6j&profile_id=165",
-  "https://player.vimeo.com/external/440218304.sd.mp4?s=4f0c8f8b8e6c7a5d5e6f7a8b9c0d1e2f3g4h5i6j&profile_id=165",
-  "https://player.vimeo.com/external/440218304.sd.mp4?s=4f0c8f8b8e6c7a5d5e6f7a8b9c0d1e2f3 g4h5i6j&profile_id=165",
-  "https://player.vimeo.com/external/440218304.sd.mp4?s=4f0c8f8b8e6c7a5d5e6f7a8b9c0d1e2f3g4h5i6j&profile_id=165",
-  "https://player.vimeo.com/external/440218304.sd.mp4?s=4f0c8f8b8e6c7a5d5e6f7a8b9c0d1e2f3g4h5i6j&profile_id=165",
-];
+// === Shimmer Animation (in-file) ===
+const shimmerStyle = `
+  @keyframes shimmer {
+    0%   { background-position: -200% 0; }
+    100% { background-position: 200% 0; }
+  }
+  .animate-shimmer {
+    background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+    background-size: 200% 100%;
+    animation: shimmer 1.8s infinite;
+  }
+  .dark .animate-shimmer {
+    background: linear-gradient(90deg, #374151 25%, #4b5563 50%, #374151 75%);
+  }
+`;
 
-// Placeholder image
+// === Reusable Shimmer Block ===
+const ShimmerBlock = ({
+  w = "w-full",
+  h = "h-4",
+  rounded = "rounded",
+  className = "",
+}) => (
+  <div
+    className={`${w} ${h} ${rounded} bg-gray-200 dark:bg-gray-700 animate-shimmer ${className}`}
+  />
+);
+
+// === Search Skeleton (Desktop Only) ===
+const SearchSkeleton = () => (
+  <div className="hidden lg:block p-4 space-y-3">
+    {[...Array(5)].map((_, i) => (
+      <div key={i} className="flex items-center space-x-3">
+        <ShimmerBlock w="w-11" h="h-11" rounded="rounded-full" />
+        <div className="flex-1 space-y-2">
+          <ShimmerBlock w="w-32" h="h-4" rounded="rounded-md" />
+          <ShimmerBlock w="w-24" h="h-3" rounded="rounded-md" />
+        </div>
+        <ShimmerBlock
+          w="w-16"
+          h="h-8"
+          rounded="rounded-md"
+          className="bg-blue-500"
+        />
+      </div>
+    ))}
+  </div>
+);
+
+// === Video URLs ===
+const RANDOM_VIDEOS = Array(30).fill(
+  "https://player.vimeo.com/external/440218304.sd.mp4?s=4f0c8f8b8e6c7a5d5e6f7a8b9c0d1e2f3g4h5i6j&profile_id=165"
+);
 const PLACEHOLDER_IMAGE =
   "https://images.unsplash.com/photo-1517841905240-472988babdf9?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80";
+
+const POSTS_PER_PAGE = 15;
 
 const Explore = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [suggestions, setSuggestions] = useState([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
-  const debounceRef = useRef(null);
   const [suggestionsLoading, setSuggestionsLoading] = useState(false);
   const [posts, setPosts] = useState([]);
-  const [postsLoading, setPostsLoading] = useState(true);
+  const [loading, setLoading] = useState(true);
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
+  const observer = useRef();
+  const debounceRef = useRef(null);
 
-  // Generate 30 random posts
-  useEffect(() => {
-    const generated = Array.from({ length: 30 }, (_, i) => {
-      const isVideo = Math.random() > 0.5;
+  // Generate posts
+  const generatePosts = useCallback((pageNum) => {
+    return Array.from({ length: POSTS_PER_PAGE }, (_, i) => {
+      const index = (pageNum - 1) * POSTS_PER_PAGE + i;
+      const isVideo = Math.random() > 0.4;
       return {
-        id: `explore-${i}`,
+        id: `post-${index}`,
         image: isVideo ? null : PLACEHOLDER_IMAGE,
-        video: isVideo ? RANDOM_VIDEOS[i % RANDOM_VIDEOS.length] : null,
-        likes: Math.floor(Math.random() * 5000) + 100,
-        comments: Math.floor(Math.random() * 200),
+        video: isVideo ? RANDOM_VIDEOS[index % RANDOM_VIDEOS.length] : null,
+        likes: Math.floor(Math.random() * 8000) + 200,
+        comments: Math.floor(Math.random() * 300),
+        caption: `Moment #${index + 1} #nature #travel`,
       };
     });
-    // simulate a short load so the skeleton/loader is visible on slow networks
-    const t = setTimeout(() => {
-      setPosts(generated);
-      setPostsLoading(false);
-    }, 300);
-
-    return () => clearTimeout(t);
   }, []);
 
-  // Filter by caption (we'll use random captions)
-  const filteredPosts = posts.filter((p, i) =>
-    `Beautiful moment ${i + 1} #nature #travel`
-      .toLowerCase()
-      .includes(searchQuery.toLowerCase())
+  // Initial load
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setPosts(generatePosts(1));
+      setLoading(false);
+    }, 800);
+    return () => clearTimeout(timer);
+  }, [generatePosts]);
+
+  // Infinite scroll
+  const lastPostRef = useCallback(
+    (node) => {
+      if (loading) return;
+      if (observer.current) observer.current.disconnect();
+      observer.current = new IntersectionObserver((entries) => {
+        if (entries[0].isIntersecting && hasMore) {
+          setPage((p) => p + 1);
+        }
+      });
+      if (node) observer.current.observe(node);
+    },
+    [loading, hasMore]
   );
 
-  const displayPosts = searchQuery ? filteredPosts : posts;
+  // Load more
+  useEffect(() => {
+    if (page === 1) return;
+    setLoading(true);
+    const timer = setTimeout(() => {
+      setPosts((prev) => [...prev, ...generatePosts(page)]);
+      setHasMore(page < 8);
+      setLoading(false);
+    }, 600);
+    return () => clearTimeout(timer);
+  }, [page, generatePosts]);
+
+  // Search
+  useEffect(() => {
+    if (!searchQuery.trim()) {
+      setSuggestions([]);
+      setShowSuggestions(false);
+      return;
+    }
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(async () => {
+      setSuggestionsLoading(true);
+      try {
+        const res = await api.get(
+          `/users/search?q=${encodeURIComponent(searchQuery.trim())}`
+        );
+        setSuggestions(res.data.results || []);
+        setShowSuggestions(true);
+      } catch (err) {
+        console.log(err);
+        setSuggestions([]);
+      } finally {
+        setSuggestionsLoading(false);
+      }
+    }, 350);
+    return () => clearTimeout(debounceRef.current);
+  }, [searchQuery]);
+
+  const filteredPosts = searchQuery
+    ? posts.filter((p) =>
+        p.caption.toLowerCase().includes(searchQuery.toLowerCase())
+      )
+    : posts;
 
   return (
-    <>
+    <div className="min-h-screen bg-gray-50 dark:bg-black">
+      {/* Inject shimmer */}
+      <style dangerouslySetInnerHTML={{ __html: shimmerStyle }} />
+
       {/* Sticky Search Bar */}
-      <div className="sticky top-0 z-50 bg-white border-b">
+      <div className="sticky top-0 z-50 bg-white dark:bg-black border-b border-gray-200 dark:border-gray-800 backdrop-blur-sm bg-opacity-95">
         <div className="max-w-5xl mx-auto px-4 py-3">
-          <div className="flex items-center">
-            <div className="flex-1 relative">
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => {
-                  const v = e.target.value;
-                  setSearchQuery(v);
-                  // debounce search suggestions (300ms)
-                  if (debounceRef.current) clearTimeout(debounceRef.current);
-                  if (!v.trim()) {
-                    setSuggestions([]);
-                    setShowSuggestions(false);
-                    return;
-                  }
-                  debounceRef.current = setTimeout(async () => {
-                    setSuggestionsLoading(true);
-                    try {
-                      const res = await api.get(
-                        `/users/search?q=${encodeURIComponent(v.trim())}`
+          <div className="relative">
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              onFocus={() => suggestions.length > 0 && setShowSuggestions(true)}
+              placeholder="Search"
+              className="w-full pl-10 pr-10 py-2.5 bg-gray-100 dark:bg-gray-800 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white dark:focus:bg-gray-900 transition-all"
+              aria-label="Search"
+            />
+            <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500" />
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery("")}
+                className="absolute right-3 top-1/2 -translate-y-1/2"
+                aria-label="Clear"
+              >
+                <FiX className="w-4 h-4 text-gray-500 hover:text-gray-700" />
+              </button>
+            )}
+          </div>
+
+          {/* Search Dropdown - Desktop Only */}
+          {showSuggestions && (
+            <div className="absolute top-full left-0 right-0 mt-1 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl shadow-xl z-50 max-h-96 overflow-y-auto">
+              {suggestionsLoading ? (
+                <SearchSkeleton />
+              ) : suggestions.length > 0 ? (
+                suggestions.map((user) => (
+                  <SuggestionRow
+                    key={user._id}
+                    suggestion={user}
+                    onToggle={(updated) => {
+                      setSuggestions((prev) =>
+                        prev.map((p) => (p._id === updated._id ? updated : p))
                       );
-                      setSuggestions(res.data.results || []);
-                      setShowSuggestions(true);
-                    } catch (e) {
-                      console.debug("search error", e?.message || e);
-                      setSuggestions([]);
-                      setShowSuggestions(false);
-                    } finally {
-                      setSuggestionsLoading(false);
-                    }
-                  }, 300);
-                }}
-                placeholder="Search accounts by username"
-                className="w-full pl-10 pr-10 py-2 bg-gray-100 rounded-lg text-sm focus:outline-none focus:bg-gray-50 transition"
-                onFocus={() => {
-                  if (suggestions.length) setShowSuggestions(true);
-                }}
-              />
-              <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500" />
-              {searchQuery && (
-                <button
-                  onClick={() => setSearchQuery("")}
-                  className="absolute right-3 top-1/2 -translate-y-1/2"
-                >
-                  <FiX className="w-4 h-4 text-gray-500" />
-                </button>
-              )}
-              {/* Suggestions dropdown */}
-              {showSuggestions && (
-                <div className="absolute left-0 right-0 mt-2 bg-white border rounded-lg shadow-lg z-50 max-h-72 overflow-auto">
-                  {suggestionsLoading ? (
-                    <div className="p-4">
-                      <Loader />
-                    </div>
-                  ) : suggestions.length > 0 ? (
-                    suggestions.map((s) => (
-                      <SuggestionRow
-                        key={s._id || s.username}
-                        suggestion={s}
-                        onToggle={async (updated) => {
-                          // optimistic update of local suggestion state
-                          setSuggestions((prev) =>
-                            prev.map((p) =>
-                              p.username === updated.username
-                                ? { ...p, ...updated }
-                                : p
-                            )
-                          );
-                        }}
-                      />
-                    ))
-                  ) : (
-                    <div className="p-4 text-sm text-gray-600">
-                      No users found
-                    </div>
-                  )}
-                </div>
+                    }}
+                  />
+                ))
+              ) : (
+                <p className="p-4 text-center text-sm text-gray-500">
+                  No users found
+                </p>
               )}
             </div>
-          </div>
+          )}
         </div>
       </div>
 
       {/* Grid */}
-      <div className="max-w-5xl mx-auto p-1 bg-white">
-        {postsLoading ? (
-          <div className="py-8">
-            <Loader />
+      <div className="max-w-5xl mx-auto p-1">
+        {loading && posts.length === 0 ? (
+          <div className="hidden lg:block py-8">
+            <DesktopGridSkeleton />
           </div>
-        ) : displayPosts.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-96 text-gray-500">
-            <FiSearch className="w-16 h-16 mb-4 opacity-50" />
-            <p className="text-lg">No results found</p>
-          </div>
+        ) : filteredPosts.length === 0 ? (
+          <EmptyState />
         ) : (
           <div className="grid grid-cols-3 gap-1">
-            {displayPosts.map((post) => (
-              <ExplorePost key={post.id} post={post} />
+            {filteredPosts.map((post, i) => (
+              <div
+                key={post.id}
+                ref={i === filteredPosts.length - 3 ? lastPostRef : null}
+                className="aspect-square relative overflow-hidden group cursor-pointer bg-gray-100 dark:bg-gray-800"
+              >
+                <ExplorePost post={post} />
+              </div>
             ))}
           </div>
         )}
+
+        {/* Load more */}
+        {loading && posts.length > 0 && <LoadingDots />}
       </div>
-    </>
+    </div>
   );
 };
 
-// Reusable Post Component with Hover Play
+// === Desktop Grid Skeleton ===
+const DesktopGridSkeleton = () => (
+  <div className="hidden lg:grid grid-cols-3 gap-1">
+    {[...Array(15)].map((_, i) => (
+      <div key={i} className="aspect-square">
+        <ShimmerBlock w="w-full" h="h-full" rounded="rounded-none" />
+      </div>
+    ))}
+  </div>
+);
+
+// === Empty State ===
+const EmptyState = () => (
+  <div className="flex flex-col items-center justify-center py-24 text-gray-500">
+    <FiSearch className="w-16 h-16 mb-4 opacity-40" />
+    <p className="text-lg font-medium">No Account found</p>
+    <p className="text-sm mt-1">Try searching for something else</p>
+  </div>
+);
+
+// === Loading Dots ===
+const LoadingDots = () => (
+  <div className="py-8 flex justify-center">
+    <div className="flex space-x-2">
+      {[0, 1, 2].map((i) => (
+        <div
+          key={i}
+          className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"
+          style={{ animationDelay: `${i * 0.1}s` }}
+        />
+      ))}
+    </div>
+  </div>
+);
+
+// === Explore Post ===
 const ExplorePost = ({ post }) => {
   const videoRef = useRef(null);
 
-  const handleMouseEnter = () => {
-    if (videoRef.current) {
-      videoRef.current.play().catch(() => {});
-    }
-  };
-
-  const handleMouseLeave = () => {
+  const play = () => videoRef.current?.play().catch(() => {});
+  const pause = () => {
     if (videoRef.current) {
       videoRef.current.pause();
       videoRef.current.currentTime = 0;
@@ -210,11 +292,7 @@ const ExplorePost = ({ post }) => {
   };
 
   return (
-    <div
-      className="aspect-square relative overflow-hidden group cursor-pointer"
-      onMouseEnter={handleMouseEnter}
-      onMouseLeave={handleMouseLeave}
-    >
+    <>
       {post.video ? (
         <video
           ref={videoRef}
@@ -223,38 +301,44 @@ const ExplorePost = ({ post }) => {
           muted
           loop
           playsInline
+          preload="metadata"
+          onMouseEnter={play}
+          onMouseLeave={pause}
         />
       ) : (
         <img
           src={post.image}
-          alt="post"
+          alt=""
           className="w-full h-full object-cover"
+          loading="lazy"
         />
       )}
 
-      {/* Hover Overlay */}
-      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-        <div className="flex gap-6 text-white">
+      <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent opacity-0 group-hover:opacity-100 transition-all duration-300 flex items-end p-3">
+        <div className="flex gap-4 text-white text-sm font-semibold">
           <div className="flex items-center gap-1">
-            <FiHeart className="w-5 h-5" />
-            <span className="font-semibold">{post.likes}</span>
+            <FiHeart className="w-5 h-5 fill-white" />
+            <span>{post.likes.toLocaleString()}</span>
           </div>
           <div className="flex items-center gap-1">
-            <FiMessageCircle className="w-5 h-5" />
-            <span className="font-semibold">{post.comments}</span>
+            <FiMessageCircle className="w-5 h-5 fill-white" />
+            <span>{post.comments}</span>
           </div>
         </div>
       </div>
 
-      {/* Video Icon */}
       {post.video && (
         <div className="absolute top-2 right-2 text-white opacity-80">
-          <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+          <svg
+            className="w-5 h-5 drop-shadow"
+            fill="currentColor"
+            viewBox="0 0 20 20"
+          >
             <path d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1.1 1.1 0 008 8.2v3.6a1.1 1.1 0 001.555 1.032l3.2-1.8a1.1 1.1 0 000-2.064l-3.2-1.8z" />
           </svg>
         </div>
       )}
-    </div>
+    </>
   );
 };
 

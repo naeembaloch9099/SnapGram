@@ -107,6 +107,7 @@ const InstagramVideoPlayer = ({ src }) => {
       )}
       {showControls && (
         <button
+          type="button"
           onClick={handleMute}
           className="absolute bottom-2 right-2 p-1.5 bg-black bg-opacity-50 rounded-full text-white z-10"
         >
@@ -466,6 +467,7 @@ const MessageChatBox = ({ conversationId }) => {
           </p>
           <div className="flex justify-center">
             <button
+              type="button"
               onClick={() => navigate("/messages/new")}
               className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-full"
             >
@@ -495,6 +497,7 @@ const MessageChatBox = ({ conversationId }) => {
           style={{ paddingTop: "env(safe-area-inset-top, 0px)" }}
         >
           <button
+            type="button"
             className="md:hidden p-2"
             aria-label="Back to home"
             title="Back to home"
@@ -534,6 +537,7 @@ const MessageChatBox = ({ conversationId }) => {
 
           <div className="flex items-center gap-2">
             <button
+              type="button"
               className="p-2 text-slate-600"
               aria-label="voice call"
               onClick={() => handleStartCall("audio")}
@@ -541,6 +545,7 @@ const MessageChatBox = ({ conversationId }) => {
               <FiPhone />
             </button>
             <button
+              type="button"
               className="p-2 text-slate-600"
               aria-label="video call"
               onClick={() => handleStartCall("video")}
@@ -637,12 +642,14 @@ const MessageChatBox = ({ conversationId }) => {
           </div>
 
           <button
+            type="button"
             onClick={cancelMediaPreview}
             className="p-2 text-slate-600 hover:text-red-600"
           >
             <FiX size={16} />
           </button>
           <button
+            type="button"
             onClick={sendMediaMessage}
             disabled={sending}
             className="p-2 text-purple-600 hover:text-purple-700 disabled:opacity-50"
@@ -659,6 +666,7 @@ const MessageChatBox = ({ conversationId }) => {
           style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}
         >
           <button
+            type="button"
             onClick={() => mediaInputRef.current?.click()}
             className="flex-shrink-0 p-2 sm:p-3 text-pink-600 bg-pink-100 rounded-full hover:bg-pink-200 transition"
             aria-label="media"
@@ -682,6 +690,7 @@ const MessageChatBox = ({ conversationId }) => {
                 Recording...
               </span>
               <button
+                type="button"
                 onClick={handleStopRecording}
                 className="flex-shrink-0 p-2 text-white bg-red-600 rounded-full"
                 aria-label="stop recording"
@@ -703,6 +712,7 @@ const MessageChatBox = ({ conversationId }) => {
 
               {messageText.trim() ? (
                 <button
+                  type="button"
                   onClick={handleSendMessage}
                   disabled={!messageText.trim() || sending}
                   className="flex-shrink-0 p-2 sm:p-3 text-slate-600 disabled:text-slate-300 hover:text-purple-600 disabled:hover:text-slate-300 transition duration-200"
@@ -716,6 +726,7 @@ const MessageChatBox = ({ conversationId }) => {
                 </button>
               ) : (
                 <button
+                  type="button"
                   onClick={handleStartRecording}
                   disabled={sending || !!selectedMedia}
                   className="flex-shrink-0 p-2 sm:p-3 text-slate-600 disabled:text-slate-300 hover:text-purple-600 disabled:hover:text-slate-300 transition duration-200"
