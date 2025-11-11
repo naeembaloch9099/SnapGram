@@ -4,7 +4,6 @@ import api from "../services/api";
 import { MessageContext } from "../context/MessageContext";
 import { AuthContext } from "../context/AuthContext";
 import { FiSearch } from "react-icons/fi";
-import { useNavigate } from "react-router-dom"; // Keeping for completeness, though not explicitly used in the final clean structure
 import { useToast } from "../hooks/useToast";
 import { ToastContainer } from "./Toast";
 

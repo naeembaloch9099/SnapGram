@@ -69,7 +69,6 @@ export default defineConfig(async ({ command }) => {
       }
     } catch (e) {
       // Optional build plugins not installed. Continue without them.
-      // eslint-disable-next-line no-console
       console.warn(
         "Optional build plugins not installed (visualizer/compression). Skipping.",
         e && e.message ? e.message : e

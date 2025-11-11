@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useContext, useRef } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { FiPhone, FiMic, FiMicOff, FiVideo, FiVideoOff } from "react-icons/fi";
 import { MessageContext } from "../context/MessageContext";
 import { AuthContext } from "../context/AuthContext"; // Import AuthContext
@@ -18,7 +18,6 @@ const formatTime = (totalSeconds) => {
 
 const CallPage = () => {
   const navigate = useNavigate();
-  const { callId } = useParams();
   const { call, myStream, peerStream, endCall } = useContext(MessageContext);
   const { activeUser } = useContext(AuthContext); // Get activeUser
 

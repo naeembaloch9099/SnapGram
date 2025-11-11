@@ -18,7 +18,7 @@ import ShareModal from "./ShareModal";
 import { AuthContext } from "../context/AuthContext";
 import { formatDate } from "../utils/formatDate";
 
-const PostCard = ({ post, onAddComment, initialShowComment = false }) => {
+const PostCard = ({ post, onAddComment }) => {
   const {
     addComment,
     toggleLike,
@@ -28,7 +28,6 @@ const PostCard = ({ post, onAddComment, initialShowComment = false }) => {
     deletePost,
   } = useContext(PostContext);
   const { activeUser } = useContext(AuthContext);
-  const [showCommentBox, setShowCommentBox] = useState(initialShowComment);
   const [commentText, setCommentText] = useState("");
   const [localComments, setLocalComments] = useState(post?.comments || []);
   const [isEditing, setIsEditing] = useState(false);
@@ -129,18 +128,6 @@ const PostCard = ({ post, onAddComment, initialShowComment = false }) => {
       window.removeEventListener("snapgram:play", onOtherPlay);
     };
   }, [post?.id]);
-
-  const handleToggleComment = () => {
-    // Toggle inline comment box instead of navigating to the post view.
-    // Save scroll position so returning to feed keeps user's place.
-    sessionStorage.setItem("home-scroll-position", String(window.scrollY));
-    setShowCommentBox((s) => {
-      const next = !s;
-      // focus the textarea when opening
-      if (next) setTimeout(() => commentInputRef.current?.focus(), 50);
-      return next;
-    });
-  };
 
   const handlePostComment = () => {
     const text = (commentText || "").trim();
@@ -429,7 +416,7 @@ const PostCard = ({ post, onAddComment, initialShowComment = false }) => {
                 type="button"
                 aria-label="comment"
                 className="hover:text-slate-800"
-                onClick={handleToggleComment}
+                onClick={() => navigate(`/post/${post?.id}`)}
               >
                 <FiMessageCircle size={20} />
               </button>
