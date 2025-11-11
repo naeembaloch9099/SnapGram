@@ -52,8 +52,7 @@ const AppRoutes = () => {
             {/* Routes WITH the main layout (sidebar, header, etc.) */}
             <Route element={<MainLayout />}>
               <Route path="/" element={<Home />} />
-              <Route path="/search" element={<Explore />} />
-              <Route path="/explore" element={<Reels />} />
+              <Route path="/explore" element={<Explore />} />
               <Route path="/reels" element={<Reels />} />
               <Route path="/profile/:username" element={<Profile />} />
               <Route path="/profile/edit" element={<EditProfile />} />

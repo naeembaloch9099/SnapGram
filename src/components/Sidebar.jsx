@@ -18,8 +18,8 @@ import {
 
 const items = [
   { to: "/", label: "Home", icon: <FiHome /> },
-  { to: "/search", label: "Search", icon: <FiSearch /> },
-  { to: "/reels", label: "Explore", icon: <FiCompass /> },
+  { to: "/explore", label: "Search", icon: <FiSearch /> },
+  { to: "/reels", label: "Reels", icon: <FiCompass /> },
   { to: "/messages", label: "Messages", icon: <FiMessageCircle /> },
   { to: "/notifications", label: "Notifications", icon: <FiBell /> },
   { to: "/create", label: "Create", icon: <FiPlusSquare /> },
@@ -94,8 +94,8 @@ const Sidebar = () => {
                   });
                   import("../pages/Messages/Messages");
 
-                  // prefetch posts/feed when hovering Home to improve page switch
-                  if (it.to === "/") {
+                  // also prefetch posts/feed when hovering Home/Explore to improve page switch
+                  if (it.to === "/" || it.to === "/explore") {
                     qc.prefetchQuery({
                       queryKey: ["posts", { page: 1 }],
                       queryFn: () =>
@@ -103,16 +103,6 @@ const Sidebar = () => {
                           m.fetchPosts().then((r) => r.data)
                         ),
                     });
-                    import("../pages/Home");
-                  }
-
-                  // prefetch reels when hovering Explore link
-                  if (it.to === "/reels") {
-                    import("../pages/Reels");
-                  }
-
-                  // prefetch search/explore page when hovering Search link
-                  if (it.to === "/search") {
                     import("../pages/Explore");
                   }
 

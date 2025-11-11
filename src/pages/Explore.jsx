@@ -97,6 +97,7 @@ const Explore = () => {
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
+  const [searchMode, setSearchMode] = useState("accounts"); // "accounts" or "posts"
   const observer = useRef();
   const debounceRef = useRef(null);
 
@@ -176,9 +177,18 @@ const Explore = () => {
 
     debounceRef.current = setTimeout(async () => {
       try {
-        const res = await api.get(
-          `/users/search?q=${encodeURIComponent(v.trim())}`
-        );
+        let res;
+        if (searchMode === "accounts") {
+          // Search for accounts
+          res = await api.get(
+            `/users/search?q=${encodeURIComponent(v.trim())}`
+          );
+        } else {
+          // Search for posts by caption
+          res = await api.get(
+            `/posts/search?q=${encodeURIComponent(v.trim())}`
+          );
+        }
         const results = res.data.results || [];
         const elapsed = Date.now() - start;
         const remaining = Math.max(0, MIN_VISIBLE_MS - elapsed);
@@ -215,7 +225,8 @@ const Explore = () => {
       {/* Sticky Search */}
       <div className="sticky top-0 z-50 bg-white dark:bg-black border-b border-gray-200 dark:border-gray-800 backdrop-blur-sm bg-opacity-95">
         <div className="max-w-5xl mx-auto px-4 py-3">
-          <div className="relative">
+          {/* Search Bar */}
+          <div className="relative mb-3">
             <input
               type="text"
               value={searchQuery}
@@ -237,26 +248,76 @@ const Explore = () => {
             )}
           </div>
 
+          {/* Search Mode Tabs */}
+          <div className="flex gap-4 border-b border-gray-200 dark:border-gray-800">
+            <button
+              onClick={() => {
+                setSearchMode("accounts");
+                setSuggestions([]);
+                setShowSuggestions(false);
+              }}
+              className={`pb-2 px-2 text-sm font-medium transition-colors ${
+                searchMode === "accounts"
+                  ? "text-blue-600 border-b-2 border-blue-600"
+                  : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200"
+              }`}
+            >
+              Accounts
+            </button>
+            <button
+              onClick={() => {
+                setSearchMode("posts");
+                setSuggestions([]);
+                setShowSuggestions(false);
+              }}
+              className={`pb-2 px-2 text-sm font-medium transition-colors ${
+                searchMode === "posts"
+                  ? "text-blue-600 border-b-2 border-blue-600"
+                  : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200"
+              }`}
+            >
+              Posts
+            </button>
+          </div>
+
           {/* Search Dropdown */}
           {showSuggestions && (
             <div className="absolute top-full left-0 right-0 mt-1 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl shadow-xl z-50 max-h-96 overflow-y-auto">
               {suggestionsLoading ? (
                 <DesktopSearchSkeleton />
               ) : suggestions.length > 0 ? (
-                suggestions.map((user) => (
-                  <SuggestionRow
-                    key={user._id}
-                    suggestion={user}
-                    onToggle={(updated) => {
-                      setSuggestions((prev) =>
-                        prev.map((p) => (p._id === updated._id ? updated : p))
-                      );
-                    }}
-                  />
-                ))
+                searchMode === "accounts" ? (
+                  suggestions.map((user) => (
+                    <SuggestionRow
+                      key={user._id}
+                      suggestion={user}
+                      onToggle={(updated) => {
+                        setSuggestions((prev) =>
+                          prev.map((p) => (p._id === updated._id ? updated : p))
+                        );
+                      }}
+                    />
+                  ))
+                ) : (
+                  // Posts search results
+                  suggestions.map((post) => (
+                    <div
+                      key={post._id}
+                      className="p-3 border-b border-gray-100 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer transition-colors"
+                    >
+                      <p className="text-sm text-gray-900 dark:text-gray-100 font-medium">
+                        {post.caption?.substring(0, 100) || "Post"}
+                      </p>
+                      <p className="text-xs text-gray-500 mt-1">
+                        {post.likes?.length || 0} likes ·{" "}
+                        {post.comments?.length || 0} comments
+                      </p>
+                    </div>
+                  ))
+                )
               ) : (
                 <p className="p-4 text-center text-sm text-gray-500">
-                  No users found
+                  No {searchMode === "accounts" ? "users" : "posts"} found
                 </p>
               )}
             </div>

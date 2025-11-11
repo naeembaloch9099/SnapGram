@@ -19,17 +19,21 @@ import { AuthContext } from "../context/AuthContext";
 import api from "../services/api";
 
 const Reels = () => {
+  // Guard against missing provider: if PostContext is undefined (not wrapped),
+  // fall back to an empty object so destructuring doesn't throw.
+  const _postContext = useContext(PostContext) || {};
   const {
     posts = [],
     addComment: addCommentToPost,
     toggleLike,
     deleteComment,
-  } = useContext(PostContext);
+  } = _postContext;
   const { activeUser } = useContext(AuthContext);
   const navigate = useNavigate();
 
   // Show only video posts (reels) on this page
-  const postsOnly = posts
+  // Defensive: ensure `posts` is always an array even if PostContext is missing
+  const postsOnly = (posts || [])
     .filter(
       (p) =>
         (p.type === "video" || p.video) && String(p.video || "").trim() !== ""
@@ -84,7 +88,10 @@ const Reels = () => {
   // When opening comments, seed local commentsMap from persisted posts so UI shows existing comments
   useEffect(() => {
     if (!openCommentsFor) return;
-    const post = posts.find((p) => String(p.id) === String(openCommentsFor));
+    // Defensive: guard posts in case PostContext isn't available yet
+    const post = (posts || []).find(
+      (p) => String(p.id) === String(openCommentsFor)
+    );
     if (post) {
       setCommentsMap((prev) => ({
         ...(prev || {}),
