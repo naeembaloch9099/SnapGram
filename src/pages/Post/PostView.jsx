@@ -96,6 +96,7 @@ const PostView = () => {
         <div className="max-w-3xl mx-auto p-4">
           <div className="flex items-center gap-4 mb-4">
             <button
+              type="button"
               onClick={handleBackClick}
               className="text-slate-600 p-2 rounded hover:bg-slate-100"
             >
@@ -187,6 +188,7 @@ const PostView = () => {
                         </div>
                         <div className="text-xs text-slate-500 mt-2 flex items-center gap-4">
                           <button
+                            type="button"
                             onClick={() => {
                               const commentId = c.id || c._id;
                               const username =
@@ -208,6 +210,7 @@ const PostView = () => {
                       </div>
                       <div className="flex flex-col items-center gap-2">
                         <button
+                          type="button"
                           onClick={() =>
                             toggleCommentLike(
                               post.id,
@@ -266,6 +269,7 @@ const PostView = () => {
                         </div>
                         <div className="flex flex-col items-center gap-2">
                           <button
+                            type="button"
                             onClick={() =>
                               toggleCommentLike(
                                 post.id,
@@ -322,6 +326,7 @@ const PostView = () => {
                     }}
                   />
                   <button
+                    type="button"
                     onClick={() => {
                       const text = (commentText || "").trim();
                       if (!text) return;

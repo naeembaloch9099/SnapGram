@@ -262,6 +262,18 @@ export const PostProvider = ({ children }) => {
       _optimistic: true,
     };
 
+    // Insert optimistic comment immediately so UI shows it without waiting
+    setPosts((prev) =>
+      prev.map((p) => {
+        if (String(p._id || p.id) !== String(postId)) return p;
+        return {
+          ...p,
+          comments: [tempComment, ...(p.comments || [])],
+          commentsCount: (p.commentsCount || 0) + 1,
+        };
+      })
+    );
+
     console.log("[PostContext.addComment] 📤 Sending to server:", {
       postId,
       text: textValue.substring(0, 20),

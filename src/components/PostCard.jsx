@@ -403,6 +403,7 @@ const PostCard = ({ post, onAddComment, initialShowComment = false }) => {
             {/* Like Button + Count */}
             <div className="flex items-center gap-1.5">
               <button
+                type="button"
                 aria-label="like"
                 className="hover:scale-110 transition"
                 onClick={handleToggleLike}
@@ -421,6 +422,7 @@ const PostCard = ({ post, onAddComment, initialShowComment = false }) => {
             {/* Comment Button + Count */}
             <div className="flex items-center gap-1.5">
               <button
+                type="button"
                 aria-label="comment"
                 className="hover:text-slate-800"
                 onClick={handleToggleComment}
