@@ -138,12 +138,16 @@ export const PostProvider = ({ children }) => {
           p.video || (p.media && p.type === "video" ? p.media : null);
 
         // ✅ NORMALIZE COMMENTS: add `id` and `when` fields to each comment
-        const comments = (p.comments || []).map((c) => ({
-          ...c,
-          id: c.id || c._id || String(Math.random()),
-          when:
-            c.when || c.createdAt || c.updatedAt || new Date().toISOString(),
-        }));
+        // and ensure newest comments appear first (last come, first shown)
+        const comments = (p.comments || [])
+          .map((c) => ({
+            ...c,
+            id: c.id || c._id || String(Math.random()),
+            when:
+              c.when || c.createdAt || c.updatedAt || new Date().toISOString(),
+          }))
+          // sort by timestamp descending so newest comments are first
+          .sort((a, b) => new Date(b.when) - new Date(a.when));
 
         return {
           ...p,

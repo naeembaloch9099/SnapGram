@@ -13,6 +13,7 @@ import { useNavigate } from "react-router-dom";
 import { AiFillHeart } from "react-icons/ai";
 import { FaWhatsapp } from "react-icons/fa";
 import { PostContext } from "../context/PostContext";
+import api from "../services/api";
 import { AuthContext } from "../context/AuthContext";
 import { formatDate } from "../utils/formatDate";
 
@@ -40,6 +41,7 @@ const PostCard = ({ post, onAddComment, initialShowComment = false }) => {
   const [isMobile, setIsMobile] = useState(false);
   const [previewMuted, setPreviewMuted] = useState(true);
   const previewVideoRef = useRef(null);
+  const commentInputRef = useRef(null);
   const navigate = useNavigate();
 
   // ownerName: ensure we render a string (owner may be an object from API)
@@ -127,9 +129,15 @@ const PostCard = ({ post, onAddComment, initialShowComment = false }) => {
   }, [post?.id]);
 
   const handleToggleComment = () => {
-    // ✅ Save scroll position before navigating
+    // Toggle inline comment box instead of navigating to the post view.
+    // Save scroll position so returning to feed keeps user's place.
     sessionStorage.setItem("home-scroll-position", String(window.scrollY));
-    navigate(`/post/${post?.id}`);
+    setShowCommentBox((s) => {
+      const next = !s;
+      // focus the textarea when opening
+      if (next) setTimeout(() => commentInputRef.current?.focus(), 50);
+      return next;
+    });
   };
 
   const handlePostComment = () => {
@@ -158,7 +166,6 @@ const PostCard = ({ post, onAddComment, initialShowComment = false }) => {
     }
 
     setCommentText("");
-    setShowCommentBox(false);
   };
 
   const isLiked =
@@ -221,13 +228,38 @@ const PostCard = ({ post, onAddComment, initialShowComment = false }) => {
     const text = `${post?.caption || ""} \n${shareUrl}`;
     try {
       if (opt === "snapgram") {
-        // navigate to in-app messages, pass recipient as query (ownerName is a string)
-        navigate(`/messages?to=${encodeURIComponent(ownerName || "")}`);
+        // Create or get conversation with the post owner, then send the post as a message
+        // Prefer an owner id if available (ownerId added in feed normalization)
+        const recipientId =
+          post?.ownerId || (post?.owner && post.owner._id) || null;
+
+        if (!recipientId) {
+          // fallback: open messages with prefilled recipient name
+          navigate(`/messages?to=${encodeURIComponent(ownerName || "")}`);
+          return;
+        }
+
+        // create or get conversation
+        const convRes = await api.post("/messages/conversation", {
+          participantId: recipientId,
+        });
+        const conv = convRes.data;
+
+        // send message referencing the post (server will resolve media from post)
+        const payload = {
+          postId: post?.id || post?._id,
+          text: post?.caption || "",
+        };
+
+        await api.post(`/messages/${conv._id || conv.id}`, payload);
+
         try {
           addShare && addShare(post?.id);
         } catch {
           console.warn("Failed to add share", post?.id);
         }
+
+        navigate(`/messages/${conv._id || conv.id}`);
         return;
       }
       if (opt === "whatsapp") {
@@ -691,32 +723,47 @@ const PostCard = ({ post, onAddComment, initialShowComment = false }) => {
           </div>
         )}
 
-        {/* Comment input box */}
-        {showCommentBox && (
-          <div className="mt-2">
-            <textarea
-              value={commentText}
-              onChange={(e) => setCommentText(e.target.value)}
-              rows={2}
-              className="w-full border rounded px-3 py-2 text-sm"
-              placeholder="Write a comment..."
-            />
-            <div className="flex justify-end mt-2 gap-2">
-              <button
-                onClick={() => setShowCommentBox(false)}
-                className="px-3 py-1 border rounded"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handlePostComment}
-                className="px-3 py-1 bg-indigo-600 text-white rounded"
-              >
-                Post
-              </button>
+        {/* Comment input box - always visible under each post */}
+        <div className="mt-2">
+          <div className="flex items-start gap-3">
+            <div className="w-9 h-9 rounded-full bg-gray-200 flex-shrink-0" />
+            <div className="flex-1">
+              <textarea
+                ref={commentInputRef}
+                value={commentText}
+                onChange={(e) => setCommentText(e.target.value)}
+                rows={1}
+                className="w-full px-3 py-2 text-sm resize-none outline-none bg-transparent"
+                placeholder="Add a comment..."
+              />
+              <div className="flex items-center justify-end gap-3 mt-1">
+                {commentText.trim().length > 0 ? (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setCommentText("");
+                        commentInputRef.current?.blur();
+                      }}
+                      className="px-3 py-1 text-sm text-gray-600"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handlePostComment}
+                      className="px-3 py-1 text-sm text-indigo-600 font-medium"
+                    >
+                      Post
+                    </button>
+                  </>
+                ) : (
+                  <div className="text-xs text-gray-400"> </div>
+                )}
+              </div>
             </div>
           </div>
-        )}
+        </div>
 
         {/* Comments open on the dedicated post view */}
       </div>
