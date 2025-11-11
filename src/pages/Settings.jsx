@@ -37,19 +37,7 @@ const Settings = () => {
   const [newPassword, setNewPassword] = useState("");
   const [newPasswordConfirm, setNewPasswordConfirm] = useState("");
 
-  // LocalStorage Helpers
-  const readUsers = () => {
-    try {
-      const data = localStorage.getItem("users");
-      return data ? JSON.parse(data) : [];
-    } catch {
-      return [];
-    }
-  };
-
-  const writeUsers = (users) => {
-    localStorage.setItem("users", JSON.stringify(users));
-  };
+  // LocalStorage Helpers (kept for demo-clear only)
 
   // Clear Demo Data
   const clearDemo = () => {
@@ -63,7 +51,7 @@ const Settings = () => {
       }
     });
     setCleared(true);
-    setMsg("Demo data cleared successfully.");
+    setMsg("Demo data cleared locally.");
     setLoading(false);
     setTimeout(() => setCleared(false), 3000);
   };
@@ -94,27 +82,18 @@ const Settings = () => {
     try {
       console.log("🗑️ [DELETE ACCOUNT] Sending delete request to backend...");
 
-      // Call backend delete account endpoint
+      // Call backend delete account endpoint (requires auth)
       const response = await api.delete("/auth/account");
       console.log("✅ [DELETE ACCOUNT] Response:", response.data);
 
-      // Clear local storage
-      const users = readUsers();
-      const filtered = users.filter(
-        (u) =>
-          u.username !== activeUser.username &&
-          String(u.id) !== String(activeUser.id)
-      );
-      writeUsers(filtered);
-
-      // Logout
-      logout();
+      // Logout (clears tokens and cookies)
+      await logout();
 
       setMsg("Your account and all associated data have been deleted.");
       setConfirmDelete(false);
 
-      // Redirect to signup after 2 seconds
-      setTimeout(() => navigate("/signup"), 2000);
+      // Redirect to signup/login after a short delay
+      setTimeout(() => navigate("/signup"), 1200);
     } catch (e) {
       console.error("❌ [DELETE ACCOUNT ERROR]", e);
       setErr(
@@ -146,12 +125,6 @@ const Settings = () => {
       return;
     }
 
-    if (oldPassword !== activeUser.password) {
-      setErr("Current password is incorrect.");
-      setLoading(false);
-      return;
-    }
-
     if (newPassword.length < 6) {
       setErr("New password must be at least 6 characters.");
       setLoading(false);
@@ -165,31 +138,23 @@ const Settings = () => {
     }
 
     try {
-      const users = readUsers();
-      const idx = users.findIndex(
-        (u) =>
-          String(u.id) === String(activeUser.id) ||
-          u.username === activeUser.username
-      );
-
-      if (idx === -1) {
-        setErr("Account not found in storage.");
-        setLoading(false);
-        return;
-      }
-
-      users[idx].password = newPassword;
-      writeUsers(users);
-
-      const updatedUser = { ...activeUser, password: newPassword };
-      login(updatedUser);
+      // Call server endpoint to change password (must be authenticated)
+      await api.post("/auth/password", {
+        oldPassword,
+        newPassword,
+      });
 
       setMsg("Password updated successfully!");
       setOldPassword("");
       setNewPassword("");
       setNewPasswordConfirm("");
-    } catch {
-      setErr("Failed to update password.");
+    } catch (err) {
+      console.error("[CHANGE PASSWORD] Error:", err);
+      setErr(
+        err?.response?.data?.error ||
+          err?.message ||
+          "Failed to change password"
+      );
     } finally {
       setLoading(false);
     }
@@ -228,6 +193,7 @@ const Settings = () => {
           </p>
           <div className="space-y-3">
             <button
+              type="button"
               onClick={handleLogout}
               className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-yellow-500 hover:bg-yellow-600 text-black font-medium rounded-lg transition"
             >
@@ -236,6 +202,7 @@ const Settings = () => {
             </button>
 
             <button
+              type="button"
               onClick={() => setConfirmDelete(true)}
               className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-red-600 hover:bg-red-700 text-white font-medium rounded-lg transition"
             >
@@ -299,6 +266,7 @@ const Settings = () => {
         </p>
         <div className="flex items-center gap-3">
           <button
+            type="button"
             onClick={clearDemo}
             disabled={loading}
             className="flex items-center gap-2 px-5 py-2.5 bg-red-600 hover:bg-red-700 text-white font-medium rounded-lg transition disabled:opacity-50"
@@ -327,12 +295,14 @@ const Settings = () => {
             </p>
             <div className="flex gap-3 justify-end">
               <button
+                type="button"
                 onClick={() => setConfirmDelete(false)}
                 className="px-4 py-2 border border-gray-300 rounded-lg font-medium hover:bg-gray-50 transition"
               >
                 Cancel
               </button>
               <button
+                type="button"
                 onClick={handleDeleteAccount}
                 className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white font-medium rounded-lg transition"
               >
