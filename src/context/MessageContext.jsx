@@ -41,7 +41,19 @@ export const MessageProvider = ({ children }) => {
     setLoading(true);
     try {
       const res = await fetchConversations();
-      setConversations(Array.isArray(res.data) ? res.data : []);
+      // Normalize server response shape. Some endpoints may return { results: [...] }
+      const payload = res && res.data;
+      if (Array.isArray(payload)) {
+        setConversations(payload);
+      } else if (payload && Array.isArray(payload.results)) {
+        setConversations(payload.results);
+      } else {
+        console.warn(
+          "MessageProvider: unexpected conversations response shape:",
+          payload
+        );
+        setConversations([]);
+      }
     } catch (e) {
       console.warn("MessageProvider: failed to load conversations", e);
     } finally {

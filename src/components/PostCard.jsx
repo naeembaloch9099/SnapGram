@@ -13,7 +13,8 @@ import { useNavigate } from "react-router-dom";
 import { AiFillHeart } from "react-icons/ai";
 import { FaWhatsapp } from "react-icons/fa";
 import { PostContext } from "../context/PostContext";
-import api from "../services/api";
+// api not used directly here (ShareModal uses api/sendMessage)
+import ShareModal from "./ShareModal";
 import { AuthContext } from "../context/AuthContext";
 import { formatDate } from "../utils/formatDate";
 
@@ -34,6 +35,7 @@ const PostCard = ({ post, onAddComment, initialShowComment = false }) => {
   const [editCaption, setEditCaption] = useState(post?.caption || "");
   // comments are shown on the dedicated post view; clicking comment will navigate there
   const [showShareMenu, setShowShareMenu] = useState(false);
+  const [showShareModal, setShowShareModal] = useState(false);
   const shareMenuRef = useRef(null);
   const optionsMenuRef = useRef(null);
   const [optionsOpen, setOptionsOpen] = useState(false);
@@ -228,38 +230,8 @@ const PostCard = ({ post, onAddComment, initialShowComment = false }) => {
     const text = `${post?.caption || ""} \n${shareUrl}`;
     try {
       if (opt === "snapgram") {
-        // Create or get conversation with the post owner, then send the post as a message
-        // Prefer an owner id if available (ownerId added in feed normalization)
-        const recipientId =
-          post?.ownerId || (post?.owner && post.owner._id) || null;
-
-        if (!recipientId) {
-          // fallback: open messages with prefilled recipient name
-          navigate(`/messages?to=${encodeURIComponent(ownerName || "")}`);
-          return;
-        }
-
-        // create or get conversation
-        const convRes = await api.post("/messages/conversation", {
-          participantId: recipientId,
-        });
-        const conv = convRes.data;
-
-        // send message referencing the post (server will resolve media from post)
-        const payload = {
-          postId: post?.id || post?._id,
-          text: post?.caption || "",
-        };
-
-        await api.post(`/messages/${conv._id || conv.id}`, payload);
-
-        try {
-          addShare && addShare(post?.id);
-        } catch {
-          console.warn("Failed to add share", post?.id);
-        }
-
-        navigate(`/messages/${conv._id || conv.id}`);
+        // open the in-app share modal so user can pick conversation or search
+        setShowShareModal(true);
         return;
       }
       if (opt === "whatsapp") {
@@ -767,6 +739,12 @@ const PostCard = ({ post, onAddComment, initialShowComment = false }) => {
 
         {/* Comments open on the dedicated post view */}
       </div>
+      {/* Share modal */}
+      <ShareModal
+        open={showShareModal}
+        onClose={() => setShowShareModal(false)}
+        post={post}
+      />
     </article>
   );
 };

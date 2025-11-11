@@ -29,19 +29,27 @@ const formatTime = (date) => {
   return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
 };
 
-// 📝 Get last message preview text
-const getLastMessageText = (conversation) => {
+// 📝 Get last message preview text (prefix with "You:" when the active user sent it)
+const getLastMessageText = (conversation, currentUserId) => {
   if (!conversation) return "";
 
   const messages = conversation.messages || [];
   if (messages.length === 0) return "No messages yet";
 
   const lastMsg = messages[messages.length - 1];
-  if (!lastMsg || !lastMsg.text) return "Sent a message";
+  if (!lastMsg) return "Sent a message";
 
-  return lastMsg.text.length > 50
-    ? lastMsg.text.substring(0, 50) + "..."
-    : lastMsg.text;
+  const text =
+    lastMsg.text ||
+    (lastMsg.media
+      ? `[${String(lastMsg.media).toUpperCase()}]`
+      : "Sent a message");
+
+  const senderId = lastMsg.sender?._id || lastMsg.sender || null;
+  const isMe = senderId && String(senderId) === String(currentUserId);
+
+  const truncated = text.length > 50 ? text.substring(0, 50) + "..." : text;
+  return isMe ? `You: ${truncated}` : truncated;
 };
 
 // 👤 Get other participant from conversation
@@ -137,7 +145,10 @@ const MessageList = ({ showHeader = true, embedded = false }) => {
             const displayName =
               otherUser?.displayName || otherUser?.username || "Unknown";
             const avatar = otherUser?.profilePic || otherUser?.avatar;
-            const lastMsg = getLastMessageText(c);
+            const lastMsg = getLastMessageText(
+              c,
+              activeUser?._id || activeUser?.id
+            );
             const timeAgo = formatTime(c.lastMessageAt);
             const unreadCount = c.unread || 0;
 

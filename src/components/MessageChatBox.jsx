@@ -121,15 +121,18 @@ const InstagramVideoPlayer = ({ src }) => {
 // --- THIS COMPONENT IS UPDATED ---
 // It handles BOTH your old messages AND the new call messages
 const MessageContent = ({ message }) => {
-  const { text, media, mediaUrl, postRef } = message;
+  const { text, media, mediaUrl, postRef, postSnapshot } = message;
+
+  // Use postRef if available, otherwise fall back to postSnapshot (embedded at send time)
+  const post = postRef || postSnapshot;
 
   // If this message references a Post, render a small post preview (image/video + caption)
-  if (postRef) {
+  if (post) {
     const apiUrl =
       import.meta.env.VITE_API_URL ||
       "https://snapserver-production.up.railway.app";
     let prMediaUrl = null;
-    const raw = postRef.image || postRef.video || null;
+    const raw = post.image || post.video || null;
     if (raw) {
       if (raw.startsWith("/")) prMediaUrl = `${apiUrl}${raw}`;
       else prMediaUrl = raw;
@@ -139,21 +142,19 @@ const MessageContent = ({ message }) => {
       <div className="rounded-lg border bg-white p-2 max-w-xs">
         {prMediaUrl && (
           <div className="mb-2 rounded overflow-hidden">
-            {postRef.type === "image" && (
+            {post.type === "image" && (
               <img
                 src={prMediaUrl}
                 alt="post preview"
                 className="w-full h-auto rounded"
               />
             )}
-            {postRef.type === "video" && (
-              <InstagramVideoPlayer src={prMediaUrl} />
-            )}
+            {post.type === "video" && <InstagramVideoPlayer src={prMediaUrl} />}
           </div>
         )}
-        {postRef.caption && (
+        {post.caption && (
           <div className="text-sm text-gray-800 whitespace-pre-wrap">
-            {postRef.caption}
+            {post.caption}
           </div>
         )}
       </div>
