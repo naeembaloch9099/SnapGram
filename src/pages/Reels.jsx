@@ -15,6 +15,7 @@ import {
 import { AiFillHeart } from "react-icons/ai";
 import { useLocation, useNavigate } from "react-router-dom";
 import { PostContext } from "../context/PostContext";
+import usePosts from "../hooks/usePosts";
 import { AuthContext } from "../context/AuthContext";
 import api from "../services/api";
 
@@ -28,6 +29,8 @@ const Reels = () => {
     toggleLike,
     deleteComment,
   } = _postContext;
+  // lightweight helper hook to access PostContext helpers (addShare)
+  const { addShare } = usePosts() || {};
   const { activeUser } = useContext(AuthContext);
   const navigate = useNavigate();
 
@@ -327,6 +330,15 @@ const Reels = () => {
         media: shareMedia.video,
         mediaType: "video",
       });
+
+      // Update local share count immediately (UI friendly). This is local-only
+      // for now; server-side persistence can be added later.
+      try {
+        if (shareMedia?.postId && addShare) addShare(shareMedia.postId);
+      } catch (e) {
+        // don't block share flow if local update fails
+        console.warn("Failed to increment local share count", e);
+      }
 
       setShareMedia(null);
       alert("Shared successfully!");
