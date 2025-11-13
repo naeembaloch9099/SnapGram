@@ -29,6 +29,7 @@ const PostCard = ({ post, onAddComment, showComments = true }) => {
   const { activeUser } = useContext(AuthContext);
   const [commentText, setCommentText] = useState("");
   const [localComments, setLocalComments] = useState(post?.comments || []);
+  const [showAllComments, setShowAllComments] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [editCaption, setEditCaption] = useState(post?.caption || "");
   const [showShareMenu, setShowShareMenu] = useState(false);
@@ -282,6 +283,23 @@ const PostCard = ({ post, onAddComment, showComments = true }) => {
     }
   };
 
+  // --- Filtering Logic for Comment Preview ---
+  const getTopLevelComments = (comments) => {
+    // Filter comments that either have no parentId OR the text doesn't start with @
+    // This is a robust way to decide what should be a top-level preview comment.
+    return (comments || []).filter(
+      (c) =>
+        !c.parentId &&
+        !(typeof c.text === "string" && c.text.trim().startsWith("@"))
+    );
+  };
+
+  const commentsToDisplay = getTopLevelComments(
+    post?.comments || localComments
+  );
+  const totalCommentsCount = (post?.comments || localComments || []).length;
+  // ---------------------------------------------
+
   return (
     <article className="bg-white rounded-lg shadow-sm overflow-visible">
       <div className="p-4">
@@ -416,6 +434,7 @@ const PostCard = ({ post, onAddComment, showComments = true }) => {
                   if (showComments) {
                     commentInputRef.current?.focus();
                   } else {
+                    // Navigate to post view where nesting is handled
                     navigate(`/post/${post?.id}`);
                   }
                 }}
@@ -423,7 +442,7 @@ const PostCard = ({ post, onAddComment, showComments = true }) => {
                 <FiMessageCircle size={20} />
               </button>
               <span className="text-sm text-slate-700 font-medium">
-                {formatLikes(post?.comments?.length || 0)}
+                {formatLikes(totalCommentsCount || 0)}
               </span>
             </div>
 
@@ -605,50 +624,39 @@ const PostCard = ({ post, onAddComment, showComments = true }) => {
           )}
         </div>
 
-        {/* Comments list (preview) - ONLY SHOWN WHEN showComments is true */}
-        {showComments &&
-          ((post?.comments && post.comments.length > 0) ||
-            localComments.length > 0) && (
-            <div className="space-y-2 mb-2">
-              {(post?.comments && post.comments.length > 0
-                ? post.comments
-                : localComments
-              )
-                .slice(0, 2)
-                .map((c) => (
-                  <div
-                    key={c.id || c._id || c.when}
-                    className="text-sm bg-slate-50 p-2 rounded"
-                  >
-                    <span className="font-semibold mr-2">
-                      {(typeof c.user === "object"
-                        ? c.user?.username
-                        : c.user) || "User"}
-                      :
-                    </span>
-                    <span>{String(c.text || "")}</span>
-                  </div>
-                ))}
-
-              {/* View all comments link */}
-              {(post?.comments || localComments || []).length > 2 && (
-                <button
-                  onClick={() => {
-                    // Save scroll position before navigating
-                    sessionStorage.setItem(
-                      "home-scroll-position",
-                      String(window.scrollY)
-                    );
-                    navigate(`/post/${post?.id}`);
-                  }}
-                  className="text-sm text-slate-500 hover:underline"
+        {/* Comments list (preview) - ONLY SHOWS TOP-LEVEL COMMENTS or View all button */}
+        {showComments && commentsToDisplay.length > 0 && (
+          <div className="space-y-2 mb-2">
+            {commentsToDisplay
+              .slice(0, showAllComments ? undefined : 2)
+              .map((c) => (
+                <div
+                  key={c.id || c._id || c.when}
+                  className="text-sm bg-slate-50 p-2 rounded"
                 >
-                  View all {(post?.comments || localComments || []).length}{" "}
-                  comments
-                </button>
-              )}
-            </div>
-          )}
+                  <span className="font-semibold mr-2">
+                    {(typeof c.user === "object" ? c.user?.username : c.user) ||
+                      "User"}
+                    :
+                  </span>
+                  <span>{String(c.text || "")}</span>
+                </div>
+              ))}
+
+            {/* View all/Hide comments toggle (or navigate to full post view) */}
+            {totalCommentsCount > 2 && (
+              <button
+                onClick={() => {
+                  // Navigate to the dedicated post page where nesting is handled
+                  navigate(`/post/${post?.id}`);
+                }}
+                className="text-sm text-slate-500 hover:underline"
+              >
+                View all {totalCommentsCount} comments
+              </button>
+            )}
+          </div>
+        )}
 
         {/* Delete Confirmation Modal (owner-only) */}
         {showDeleteModal && (
@@ -730,8 +738,6 @@ const PostCard = ({ post, onAddComment, showComments = true }) => {
             </div>
           </div>
         )}
-
-        {/* Comments open on the dedicated post view - This line is just a comment */}
       </div>
       {/* Share modal */}
       <ShareModal
