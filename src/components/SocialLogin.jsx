@@ -193,7 +193,10 @@ const SocialLogin = ({ label = "Continue with Facebook" }) => {
   return (
     <button
       type="button"
-      onClick={handleFacebook}
+      onClick={(e) => {
+        console.debug("[SocialLogin Button] Clicked! Event:", e);
+        handleFacebook();
+      }}
       disabled={loading}
       className="w-full mt-2 border border-gray-300 rounded-xl py-2.5 flex items-center justify-center gap-3 hover:bg-gray-50"
     >

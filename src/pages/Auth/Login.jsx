@@ -1,10 +1,15 @@
-import React, { useState, useContext } from "react";
+import React, { useState, useContext, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { AuthContext } from "../../context/AuthContext";
 import PasswordInput from "../../components/PasswordInput";
 import SocialLogin from "../../components/SocialLogin";
 
 const Login = () => {
+  console.debug("[Login Page] Loaded");
+  console.debug("[Login Page] VITE_FACEBOOK_APP_ID =", import.meta.env.VITE_FACEBOOK_APP_ID);
+  useEffect(() => {
+    console.debug("[Login Page] Component mounted");
+  }, []);
   const navigate = useNavigate();
   const { login } = useContext(AuthContext);
   const [identifier, setIdentifier] = useState(""); // username, email or phone
