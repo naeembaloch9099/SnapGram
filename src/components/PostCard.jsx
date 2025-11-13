@@ -1,4 +1,4 @@
-import React, { useState, useContext, useRef, useEffect } from "react";
+import React, { useState, useContext, useRef, useEffect, useMemo } from "react";
 import {
   FiHeart,
   FiMessageCircle,
@@ -13,12 +13,11 @@ import { useNavigate } from "react-router-dom";
 import { AiFillHeart } from "react-icons/ai";
 import { FaWhatsapp } from "react-icons/fa";
 import { PostContext } from "../context/PostContext";
-// api not used directly here (ShareModal uses api/sendMessage)
 import ShareModal from "./ShareModal";
 import { AuthContext } from "../context/AuthContext";
 import { formatDate } from "../utils/formatDate";
 
-const PostCard = ({ post, onAddComment }) => {
+const PostCard = ({ post, onAddComment, showComments = true }) => {
   const {
     addComment,
     toggleLike,
@@ -32,7 +31,6 @@ const PostCard = ({ post, onAddComment }) => {
   const [localComments, setLocalComments] = useState(post?.comments || []);
   const [isEditing, setIsEditing] = useState(false);
   const [editCaption, setEditCaption] = useState(post?.caption || "");
-  // comments are shown on the dedicated post view; clicking comment will navigate there
   const [showShareMenu, setShowShareMenu] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
   const shareMenuRef = useRef(null);
@@ -46,7 +44,7 @@ const PostCard = ({ post, onAddComment }) => {
   const navigate = useNavigate();
 
   // ownerName: ensure we render a string (owner may be an object from API)
-  const ownerName = React.useMemo(() => {
+  const ownerName = useMemo(() => {
     const o = post?.owner;
     if (!o) return post?.username || "User";
     if (typeof o === "string") return o;
@@ -284,8 +282,6 @@ const PostCard = ({ post, onAddComment }) => {
     }
   };
 
-  // openComments/closeComments removed - navigation handled via route
-
   return (
     <article className="bg-white rounded-lg shadow-sm overflow-visible">
       <div className="p-4">
@@ -388,7 +384,7 @@ const PostCard = ({ post, onAddComment }) => {
       </div>
 
       <div className="p-4">
-        {/* --- MODIFIED ACTIONS/STATS SECTION --- */}
+        {/* --- ACTIONS/STATS SECTION --- */}
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-4 text-slate-600">
             {/* Like Button + Count */}
@@ -415,25 +411,31 @@ const PostCard = ({ post, onAddComment }) => {
               <button
                 type="button"
                 aria-label="comment"
-                className="hover:text-slate-800"
-                onClick={() => navigate(`/post/${post?.id}`)}
+                className="hover:scale-110 transition"
+                onClick={() => {
+                  if (showComments) {
+                    commentInputRef.current?.focus();
+                  } else {
+                    navigate(`/post/${post?.id}`);
+                  }
+                }}
               >
                 <FiMessageCircle size={20} />
               </button>
               <span className="text-sm text-slate-700 font-medium">
-                {formatLikes((post?.comments || []).length || 0)}
+                {formatLikes(post?.comments?.length || 0)}
               </span>
             </div>
 
             {/* Repost Button + Count */}
             <div className="flex items-center gap-1.5">
               <button
+                type="button"
                 aria-label="repost"
-                className="hover:text-slate-800"
+                className="hover:scale-110 transition"
                 onClick={() => {
                   try {
-                    if (toggleRepost && post?.id)
-                      toggleRepost(post.id, activeUser?.username);
+                    if (toggleRepost && post?.id) toggleRepost(post.id);
                   } catch (err) {
                     console.warn("Failed to toggle repost", err);
                   }
@@ -446,12 +448,13 @@ const PostCard = ({ post, onAddComment }) => {
               </span>
             </div>
 
-            {/* Share Button + Count */}
+            {/* Share Button + Count + Menu */}
             <div className="flex items-center gap-1.5">
-              <div className="relative" ref={shareMenuRef}>
+              <div className="relative">
                 <button
+                  type="button"
                   aria-label="share"
-                  className="hover:text-slate-800"
+                  className="hover:scale-110 transition"
                   onClick={(e) => {
                     e.stopPropagation();
                     setShowShareMenu((s) => !s);
@@ -555,7 +558,7 @@ const PostCard = ({ post, onAddComment }) => {
             </button>
           </div>
         </div>
-        {/* --- END OF MODIFIED SECTION --- */}
+        {/* --- END OF ACTIONS/STATS SECTION --- */}
 
         <div className="text-sm text-slate-700 mb-2">
           {isEditing ? (
@@ -602,48 +605,50 @@ const PostCard = ({ post, onAddComment }) => {
           )}
         </div>
 
-        {/* Comments list (preview) */}
-        {((post?.comments && post.comments.length > 0) ||
-          localComments.length > 0) && (
-          <div className="space-y-2 mb-2">
-            {(post?.comments && post.comments.length > 0
-              ? post.comments
-              : localComments
-            )
-              .slice(0, 2)
-              .map((c) => (
-                <div
-                  key={c.id || c._id || c.when}
-                  className="text-sm bg-slate-50 p-2 rounded"
-                >
-                  <span className="font-semibold mr-2">
-                    {(typeof c.user === "object" ? c.user?.username : c.user) ||
-                      "User"}
-                    :
-                  </span>
-                  <span>{String(c.text || "")}</span>
-                </div>
-              ))}
+        {/* Comments list (preview) - ONLY SHOWN WHEN showComments is true */}
+        {showComments &&
+          ((post?.comments && post.comments.length > 0) ||
+            localComments.length > 0) && (
+            <div className="space-y-2 mb-2">
+              {(post?.comments && post.comments.length > 0
+                ? post.comments
+                : localComments
+              )
+                .slice(0, 2)
+                .map((c) => (
+                  <div
+                    key={c.id || c._id || c.when}
+                    className="text-sm bg-slate-50 p-2 rounded"
+                  >
+                    <span className="font-semibold mr-2">
+                      {(typeof c.user === "object"
+                        ? c.user?.username
+                        : c.user) || "User"}
+                      :
+                    </span>
+                    <span>{String(c.text || "")}</span>
+                  </div>
+                ))}
 
-            {/* View all comments link */}
-            {(post?.comments || localComments || []).length > 2 && (
-              <button
-                onClick={() => {
-                  // ✅ Save scroll position before navigating
-                  sessionStorage.setItem(
-                    "home-scroll-position",
-                    String(window.scrollY)
-                  );
-                  navigate(`/post/${post?.id}`);
-                }}
-                className="text-sm text-slate-500 hover:underline"
-              >
-                View all {(post?.comments || localComments || []).length}{" "}
-                comments
-              </button>
-            )}
-          </div>
-        )}
+              {/* View all comments link */}
+              {(post?.comments || localComments || []).length > 2 && (
+                <button
+                  onClick={() => {
+                    // Save scroll position before navigating
+                    sessionStorage.setItem(
+                      "home-scroll-position",
+                      String(window.scrollY)
+                    );
+                    navigate(`/post/${post?.id}`);
+                  }}
+                  className="text-sm text-slate-500 hover:underline"
+                >
+                  View all {(post?.comments || localComments || []).length}{" "}
+                  comments
+                </button>
+              )}
+            </div>
+          )}
 
         {/* Delete Confirmation Modal (owner-only) */}
         {showDeleteModal && (
@@ -682,49 +687,51 @@ const PostCard = ({ post, onAddComment }) => {
           </div>
         )}
 
-        {/* Comment input box - always visible under each post */}
-        <div className="mt-2">
-          <div className="flex items-start gap-3">
-            <div className="w-9 h-9 rounded-full bg-gray-200 flex-shrink-0" />
-            <div className="flex-1">
-              <textarea
-                ref={commentInputRef}
-                value={commentText}
-                onChange={(e) => setCommentText(e.target.value)}
-                rows={1}
-                className="w-full px-3 py-2 text-sm resize-none outline-none bg-transparent"
-                placeholder="Add a comment..."
-              />
-              <div className="flex items-center justify-end gap-3 mt-1">
-                {commentText.trim().length > 0 ? (
-                  <>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setCommentText("");
-                        commentInputRef.current?.blur();
-                      }}
-                      className="px-3 py-1 text-sm text-gray-600"
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      type="button"
-                      onClick={handlePostComment}
-                      className="px-3 py-1 text-sm text-indigo-600 font-medium"
-                    >
-                      Post
-                    </button>
-                  </>
-                ) : (
-                  <div className="text-xs text-gray-400"> </div>
-                )}
+        {/* Comment input box - only visible when showComments is true */}
+        {showComments && (
+          <div className="mt-2">
+            <div className="flex items-start gap-3">
+              <div className="w-9 h-9 rounded-full bg-gray-200 flex-shrink-0" />
+              <div className="flex-1">
+                <textarea
+                  ref={commentInputRef}
+                  value={commentText}
+                  onChange={(e) => setCommentText(e.target.value)}
+                  rows={1}
+                  className="w-full px-3 py-2 text-sm resize-none outline-none bg-transparent"
+                  placeholder="Add a comment..."
+                />
+                <div className="flex items-center justify-end gap-3 mt-1">
+                  {commentText.trim().length > 0 ? (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setCommentText("");
+                          commentInputRef.current?.blur();
+                        }}
+                        className="px-3 py-1 text-sm text-gray-600"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handlePostComment}
+                        className="px-3 py-1 text-sm text-indigo-600 font-medium"
+                      >
+                        Post
+                      </button>
+                    </>
+                  ) : (
+                    <div className="text-xs text-gray-400"> </div>
+                  )}
+                </div>
               </div>
             </div>
           </div>
-        </div>
+        )}
 
-        {/* Comments open on the dedicated post view */}
+        {/* Comments open on the dedicated post view - This line is just a comment */}
       </div>
       {/* Share modal */}
       <ShareModal
