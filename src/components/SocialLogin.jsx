@@ -3,6 +3,62 @@ import { useNavigate } from "react-router-dom";
 import { AuthContext } from "../context/AuthContext";
 import { facebookLogin as fbLoginService } from "../services/authService";
 
+// small helper: inject FB SDK and wait until window.FB is available
+const loadFacebookSDK = (appId) =>
+  new Promise((resolve, reject) => {
+    try {
+      if (typeof window === "undefined") return reject(new Error("no window"));
+      if (window.FB) return resolve(window.FB);
+      // avoid injecting twice
+      if (document.getElementById("facebook-jssdk")) {
+        // wait for FB to initialize
+        const t = setInterval(() => {
+          if (window.FB) {
+            clearInterval(t);
+            resolve(window.FB);
+          }
+        }, 100);
+        // timeout after 8s
+        setTimeout(() => {
+          clearInterval(t);
+          if (window.FB) resolve(window.FB);
+          else reject(new Error("FB SDK load timeout"));
+        }, 8000);
+        return;
+      }
+
+      window.fbAsyncInit = function () {
+        try {
+          window.FB.init({
+            appId,
+            cookie: true,
+            xfbml: false,
+            version: "v15.0",
+          });
+        } catch (e) {
+          // ignore init error - still attempt to resolve
+        }
+        if (window.FB) resolve(window.FB);
+      };
+
+      const script = document.createElement("script");
+      script.id = "facebook-jssdk";
+      script.src = "https://connect.facebook.net/en_US/sdk.js";
+      script.async = true;
+      script.onload = () => {
+        // fbAsyncInit should run; but if not, wait a short while
+        setTimeout(() => {
+          if (window.FB) resolve(window.FB);
+          else reject(new Error("FB SDK loaded but window.FB missing"));
+        }, 300);
+      };
+      script.onerror = (e) => reject(new Error("Failed to load FB SDK"));
+      document.body.appendChild(script);
+    } catch (e) {
+      reject(e);
+    }
+  });
+
 const SocialLogin = ({ label = "Continue with Facebook" }) => {
   const { login } = useContext(AuthContext);
   const navigate = useNavigate();
@@ -11,17 +67,35 @@ const SocialLogin = ({ label = "Continue with Facebook" }) => {
   const handleFacebook = async () => {
     setLoading(true);
     try {
-      if (typeof window !== "undefined" && window.FB) {
-        window.FB.login(async (resp) => {
-          if (resp.status === "connected" && resp.authResponse) {
+      const appId = import.meta.env.VITE_FACEBOOK_APP_ID || null;
+      if (!appId) {
+        alert("Facebook App ID not set in VITE_FACEBOOK_APP_ID");
+        setLoading(false);
+        return;
+      }
+
+      // Ensure SDK exists (load dynamically if needed)
+      let FB;
+      try {
+        FB = window.FB || (await loadFacebookSDK(appId));
+      } catch (err) {
+        console.error("FB SDK load error", err);
+        alert("Failed to load Facebook SDK. Check console for details.");
+        setLoading(false);
+        return;
+      }
+
+      // Now call FB.login
+      FB.login(
+        async (resp) => {
+          console.log("FB.login callback", resp);
+          if (resp && resp.status === "connected" && resp.authResponse) {
             const token = resp.authResponse.accessToken;
             try {
               const res = await fbLoginService(token);
               const data = res?.data || {};
-              // If server returns access + user, set auth
               if (data.access || data.user) {
                 try {
-                  // AuthContext.login accepts a user object with access token
                   await login({ access: data.access, ...data.user });
                 } catch (e) {
                   console.warn("AuthContext.login failed", e);
@@ -38,18 +112,11 @@ const SocialLogin = ({ label = "Continue with Facebook" }) => {
             alert("Facebook login failed or was cancelled");
           }
           setLoading(false);
-        }, { scope: "email,public_profile" });
-      } else {
-        // FB SDK not loaded - fallback: call server placeholder endpoint with dummy token
-        try {
-          const res = await fbLoginService("CLIENT_WILL_PROVIDE_TOKEN");
-          alert(res?.data?.error || "Facebook login not configured on server");
-        } catch (err) {
-          alert(err?.response?.data?.error || "Social login failed");
-        }
-      }
+        },
+        { scope: "email,public_profile" }
+      );
     } catch (e) {
-      console.error(e);
+      console.error("SocialLogin error", e);
       setLoading(false);
     }
   };
@@ -61,7 +128,11 @@ const SocialLogin = ({ label = "Continue with Facebook" }) => {
       disabled={loading}
       className="w-full mt-2 border border-gray-300 rounded-xl py-2.5 flex items-center justify-center gap-3 hover:bg-gray-50"
     >
-      <svg className="w-5 h-5 text-blue-600" viewBox="0 0 24 24" fill="currentColor">
+      <svg
+        className="w-5 h-5 text-blue-600"
+        viewBox="0 0 24 24"
+        fill="currentColor"
+      >
         <path d="M22 12a10 10 0 10-11.5 9.9v-7h-2.1V12h2.1V9.8c0-2.1 1.2-3.3 3-3.3.9 0 1.8.2 1.8.2v2h-1c-1 0-1.3.6-1.3 1.2V12h2.3l-.4 2.9h-1.9v7A10 10 0 0022 12z" />
       </svg>
       {label}
