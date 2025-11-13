@@ -36,6 +36,7 @@ const loadFacebookSDK = (appId) =>
             version: "v15.0",
           });
         } catch (e) {
+          console.warn("FB.init failed", e);
           // ignore init error - still attempt to resolve
         }
         if (window.FB) resolve(window.FB);
@@ -52,7 +53,7 @@ const loadFacebookSDK = (appId) =>
           else reject(new Error("FB SDK loaded but window.FB missing"));
         }, 300);
       };
-      script.onerror = (e) => reject(new Error("Failed to load FB SDK"));
+      script.onerror = (e) => reject(new Error("Failed to load FB SDK", e));
       document.body.appendChild(script);
     } catch (e) {
       reject(e);
@@ -76,19 +77,67 @@ const SocialLogin = ({ label = "Continue with Facebook" }) => {
 
       // Ensure SDK exists (load dynamically if needed)
       let FB;
-      try {
-        FB = window.FB || (await loadFacebookSDK(appId));
-      } catch (err) {
-        console.error("FB SDK load error", err);
-        alert("Failed to load Facebook SDK. Check console for details.");
-        setLoading(false);
-        return;
+      // If FB isn't already present, open a small popup synchronously so the
+      // later FB.login call isn't blocked by popup blockers. This popup acts
+      // as a user-gesture-owned window and will be closed once the flow
+      // completes.
+      let popupWin = null;
+      if (!window.FB) {
+        try {
+          popupWin = window.open("", "fb-login", "width=600,height=600");
+          if (popupWin && popupWin.document) {
+            popupWin.document.body.style.fontFamily = "Arial, sans-serif";
+            popupWin.document.body.style.display = "flex";
+            popupWin.document.body.style.alignItems = "center";
+            popupWin.document.body.style.justifyContent = "center";
+            popupWin.document.body.innerHTML =
+              '<div style="text-align:center;padding:20px;">Loading Facebook sign-in…<br/><small>If this page stays blank, please allow popups for this site.</small></div>';
+          }
+        } catch (e) {
+          console.log("error is find", e);
+          // popup could be blocked; we'll handle below
+          popupWin = null;
+        }
+
+        try {
+          FB = window.FB || (await loadFacebookSDK(appId));
+        } catch (err) {
+          console.error("FB SDK load error", err);
+          if (!popupWin) {
+            alert(
+              "Failed to load Facebook SDK or popup blocked. Please enable popups and try again."
+            );
+          } else {
+            // inform via the popup too
+            try {
+              popupWin.document.body.innerHTML =
+                '<div style="text-align:center;padding:20px;color:#c00;">Failed to load Facebook SDK.<br/>Check console for details.</div>';
+            } catch (e) {
+              console.log("Error updating popup with FB SDK load failure", e);
+              // ignore
+            }
+            alert("Failed to load Facebook SDK. Check console for details.");
+          }
+          setLoading(false);
+          return;
+        }
+      } else {
+        FB = window.FB;
       }
 
       // Now call FB.login
       FB.login(
         async (resp) => {
           console.log("FB.login callback", resp);
+          if (popupWin && !popupWin.closed) {
+            try {
+              popupWin.close();
+            } catch (e) {
+              console.log("Error closing popup window", e);
+              // ignore
+            }
+          }
+
           if (resp && resp.status === "connected" && resp.authResponse) {
             const token = resp.authResponse.accessToken;
             try {

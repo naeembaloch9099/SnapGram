@@ -130,5 +130,6 @@ try {
     }
   }
 } catch (e) {
+  console.log("Error loading Facebook SDK", e);
   // ignore env read errors
 }
