@@ -29,7 +29,7 @@ const PostCard = ({ post, onAddComment, showComments = true }) => {
   const { activeUser } = useContext(AuthContext);
   const [commentText, setCommentText] = useState("");
   const [localComments, setLocalComments] = useState(post?.comments || []);
-  const [showAllComments, setShowAllComments] = useState(false);
+  const [showAllComments, _setShowAllComments] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [editCaption, setEditCaption] = useState(post?.caption || "");
   const [showShareMenu, setShowShareMenu] = useState(false);
