@@ -13,22 +13,91 @@ const SocialLogin = ({ label = "Continue with Facebook" }) => {
   const [loading, setLoading] = useState(false);
 
   const handleFacebook = async () => {
-    console.debug("[SocialLogin] handleFacebook start");
+    // AGGRESSIVE LOGGING - ALWAYS SHOW
+    console.log("🔴 [SocialLogin] handleFacebook STARTED");
+    console.log("🔴 window.FB present?", !!window.FB);
+    console.log(
+      "🔴 VITE_FACEBOOK_APP_ID =",
+      import.meta.env.VITE_FACEBOOK_APP_ID
+    );
+
     setLoading(true);
     try {
       const appId = import.meta.env.VITE_FACEBOOK_APP_ID || null;
+      console.log("🔴 appId from env:", appId);
 
       if (!appId) {
+        console.error("🔴 ERROR: appId is missing!");
         alert("Facebook App ID not set in VITE_FACEBOOK_APP_ID");
         setLoading(false);
         return;
       }
 
       // --- CRITICAL FIX: Ensure FB object is available ---
-      const FB = window.FB;
+      let FB = window.FB;
+      console.log("🔴 window.FB check 1:", !!FB);
 
       if (!FB) {
-        console.warn("[SocialLogin] FB SDK not initialized on window.FB.");
+        console.log(
+          "🔴 FB not on window, attempting to load SDK dynamically..."
+        );
+        // Try to load SDK dynamically as fallback
+        try {
+          const loadSDK = (appId) =>
+            new Promise((resolve, reject) => {
+              if (window.FB) return resolve(window.FB);
+              if (document.getElementById("facebook-jssdk")) {
+                const t = setInterval(() => {
+                  if (window.FB) {
+                    clearInterval(t);
+                    resolve(window.FB);
+                  }
+                }, 100);
+                setTimeout(() => {
+                  clearInterval(t);
+                  if (window.FB) resolve(window.FB);
+                  else reject(new Error("FB SDK timeout"));
+                }, 5000);
+                return;
+              }
+              window.fbAsyncInit = function () {
+                if (window.FB) {
+                  window.FB.init({
+                    appId,
+                    cookie: true,
+                    xfbml: false,
+                    version: "v15.0",
+                  });
+                }
+                if (window.FB) resolve(window.FB);
+              };
+              const script = document.createElement("script");
+              script.id = "facebook-jssdk";
+              script.src = "https://connect.facebook.net/en_US/sdk.js";
+              script.async = true;
+              script.onload = () => {
+                setTimeout(() => {
+                  if (window.FB) resolve(window.FB);
+                  else reject(new Error("FB SDK loaded but window.FB missing"));
+                }, 300);
+              };
+              script.onerror = () =>
+                reject(new Error("Failed to load FB SDK script"));
+              document.body.appendChild(script);
+            });
+
+          FB = await loadSDK(appId);
+          console.log("🔴 SDK loaded dynamically, FB now:", !!FB);
+        } catch (sdkErr) {
+          console.error("🔴 ERROR loading SDK:", sdkErr);
+          alert("Failed to load Facebook SDK: " + sdkErr.message);
+          setLoading(false);
+          return;
+        }
+      }
+
+      if (!FB) {
+        console.error("🔴 FATAL: FB is still not available!");
         alert(
           "Facebook SDK is not ready. Please refresh the page and try again."
         );
@@ -36,47 +105,51 @@ const SocialLogin = ({ label = "Continue with Facebook" }) => {
         return;
       }
 
-      // If the SDK is ready, we proceed directly and synchronously with FB.login()
-      // to ensure the call is linked immediately to the user's click event.
-      console.debug(
-        "[SocialLogin] FB SDK is ready. Calling FB.login synchronously."
-      );
+      console.log("🔴 FB.login() is about to be called");
 
       // Now call FB.login
       FB.login(
         async (resp) => {
-          console.debug("[SocialLogin] FB.login callback", resp);
-
-          // NOTE: Removed the popupWin closing logic as the complex popup opening logic
-          // (which caused the delay) was removed in favor of simple synchronous flow.
+          console.log("🔴 [FB.login callback] Response:", resp);
+          console.log("🔴 resp.status:", resp?.status);
+          console.log("🔴 resp.authResponse:", resp?.authResponse);
 
           if (resp && resp.status === "connected" && resp.authResponse) {
             const token = resp.authResponse.accessToken;
+            console.log("🔴 Token obtained, sending to server...");
             try {
-              console.debug(
-                "[SocialLogin] POSTing token to server (authService.facebookLogin)",
-                { tokenPreview: token?.slice(0, 8) + "..." }
+              console.log(
+                "🔴 Calling fbLoginService with token preview:",
+                token?.slice(0, 8) + "..."
               );
               // THIS is the network call to your backend /auth/facebook
               const res = await fbLoginService(token);
-              console.debug("[SocialLogin] facebookLogin response", res);
+              console.log("🔴 SERVER RESPONSE:", res);
 
               const data = res?.data || {};
+              console.log("🔴 Response data:", data);
               if (data.access || data.user) {
+                console.log("🔴 Login successful, logging in user...");
                 try {
                   await login({ access: data.access, ...data.user });
+                  console.log("🔴 AuthContext login successful");
                 } catch (e) {
-                  console.warn("AuthContext.login failed", e);
+                  console.warn("🔴 AuthContext.login failed", e);
                 }
                 navigate("/");
               } else {
+                console.error("🔴 No access or user in response");
                 alert(data.error || "Facebook login not configured on server");
               }
             } catch (err) {
-              console.error("[SocialLogin] facebookLogin POST failed", err);
+              console.error("🔴 SERVER POST FAILED:", err);
+              console.error("🔴 Error response:", err?.response?.data);
+              console.error("🔴 Error status:", err?.response?.status);
               alert(err?.response?.data?.error || "Social login failed");
             }
           } else {
+            console.warn("🔴 FB.login not connected or no authResponse");
+            console.warn("🔴 resp.status:", resp?.status);
             alert("Facebook login failed or was cancelled");
           }
           setLoading(false);
@@ -84,7 +157,8 @@ const SocialLogin = ({ label = "Continue with Facebook" }) => {
         { scope: "email,public_profile" }
       );
     } catch (e) {
-      console.error("SocialLogin error (Fatal)", e);
+      console.error("🔴 OUTER CATCH - Fatal error:", e);
+      console.error("🔴 Error stack:", e.stack);
       setLoading(false);
     }
   };
