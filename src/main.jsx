@@ -102,3 +102,33 @@ if (typeof window !== "undefined" && "serviceWorker" in navigator) {
     });
   });
 }
+
+// --- Optional: load Facebook SDK if VITE_FACEBOOK_APP_ID is provided ---
+try {
+  const fbAppId = import.meta.env.VITE_FACEBOOK_APP_ID;
+  if (fbAppId) {
+    // Avoid injecting twice
+    if (!document.getElementById("facebook-jssdk")) {
+      window.fbAsyncInit = function () {
+        try {
+          window.FB.init({
+            appId: fbAppId,
+            cookie: true,
+            xfbml: false,
+            version: "v15.0",
+          });
+        } catch (e) {
+          console.warn("FB.init failed", e);
+        }
+      };
+
+      const script = document.createElement("script");
+      script.id = "facebook-jssdk";
+      script.src = "https://connect.facebook.net/en_US/sdk.js";
+      script.async = true;
+      document.body.appendChild(script);
+    }
+  }
+} catch (e) {
+  // ignore env read errors
+}

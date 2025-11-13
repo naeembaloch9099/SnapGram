@@ -3,6 +3,7 @@ import { AuthContext } from "../../context/AuthContext";
 import { useNavigate, Link } from "react-router-dom";
 import api from "../../services/api";
 import PasswordInput from "../../components/PasswordInput";
+import SocialLogin from "../../components/SocialLogin";
 
 const suggestUsername = (fullName) => {
   if (!fullName) return "user" + Math.floor(Math.random() * 9000 + 1000);
@@ -480,6 +481,10 @@ const Signup = () => {
           {/* Changed button text based on state */}
           {otpSent ? "Verify & Create Account" : "Create Account"}
         </button>
+        {/* Social signup */}
+        <div className="mt-3">
+          <SocialLogin />
+        </div>
         {/* Display general errors */}
         {error && <p className="text-sm text-red-600 text-center">{error}</p>}
       </form>

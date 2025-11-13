@@ -22,6 +22,10 @@ const Signup = lazy(() => import("../pages/Auth/Signup"));
 const ForgotPassword = lazy(() => import("../pages/Auth/ForgotPassword"));
 const NotFound = lazy(() => import("../pages/NotFound"));
 
+// Legal pages (public)
+const Privacy = lazy(() => import("../pages/Privacy"));
+const Terms = lazy(() => import("../pages/Terms"));
+const DataDeletion = lazy(() => import("../pages/DataDeletion"));
 // ---
 // **1. LAZY LOAD THE NEW CALL PAGE**
 // ---
@@ -33,6 +37,10 @@ const AppRoutes = () => {
   return (
     <Suspense fallback={<Loader fullScreen={true} size="lg" />}>
       <Routes>
+        {/* Public/legal pages */}
+        <Route path="/privacy" element={<Privacy />} />
+        <Route path="/terms" element={<Terms />} />
+        <Route path="/data-deletion" element={<DataDeletion />} />
         {/* If not authenticated, only expose auth routes and redirect everything to /login */}
         {!activeUser ? (
           <>

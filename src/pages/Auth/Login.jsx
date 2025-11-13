@@ -2,6 +2,7 @@ import React, { useState, useContext } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { AuthContext } from "../../context/AuthContext";
 import PasswordInput from "../../components/PasswordInput";
+import SocialLogin from "../../components/SocialLogin";
 
 const Login = () => {
   const navigate = useNavigate();
@@ -75,6 +76,11 @@ const Login = () => {
             Log in
           </button>
         </form>
+
+        {/* Social login */}
+        <div className="mt-4">
+          <SocialLogin />
+        </div>
 
         <div className="mt-6 text-center text-sm text-gray-600">
           Don’t have an account?{" "}
