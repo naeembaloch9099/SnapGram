@@ -66,6 +66,7 @@ const SocialLogin = ({ label = "Continue with Facebook" }) => {
   const [loading, setLoading] = useState(false);
 
   const handleFacebook = async () => {
+    console.debug("[SocialLogin] handleFacebook start");
     setLoading(true);
     try {
       const appId = import.meta.env.VITE_FACEBOOK_APP_ID || null;
@@ -83,6 +84,10 @@ const SocialLogin = ({ label = "Continue with Facebook" }) => {
       // completes.
       let popupWin = null;
       if (!window.FB) {
+        console.debug(
+          "[SocialLogin] FB not present, attempting to open popup and load SDK",
+          { appId }
+        );
         try {
           popupWin = window.open("", "fb-login", "width=600,height=600");
           if (popupWin && popupWin.document) {
@@ -94,15 +99,20 @@ const SocialLogin = ({ label = "Continue with Facebook" }) => {
               '<div style="text-align:center;padding:20px;">Loading Facebook sign-in…<br/><small>If this page stays blank, please allow popups for this site.</small></div>';
           }
         } catch (e) {
-          console.log("error is find", e);
+          console.warn("[SocialLogin] popup open error", e);
           // popup could be blocked; we'll handle below
           popupWin = null;
         }
 
         try {
+          console.debug("[SocialLogin] loading FB SDK...");
+          const startLoad = Date.now();
           FB = window.FB || (await loadFacebookSDK(appId));
+          console.debug("[SocialLogin] FB SDK loaded", {
+            tookMs: Date.now() - startLoad,
+          });
         } catch (err) {
-          console.error("FB SDK load error", err);
+          console.error("[SocialLogin] FB SDK load error", err);
           if (!popupWin) {
             alert(
               "Failed to load Facebook SDK or popup blocked. Please enable popups and try again."
@@ -113,7 +123,10 @@ const SocialLogin = ({ label = "Continue with Facebook" }) => {
               popupWin.document.body.innerHTML =
                 '<div style="text-align:center;padding:20px;color:#c00;">Failed to load Facebook SDK.<br/>Check console for details.</div>';
             } catch (e) {
-              console.log("Error updating popup with FB SDK load failure", e);
+              console.warn(
+                "[SocialLogin] Error updating popup with FB SDK load failure",
+                e
+              );
               // ignore
             }
             alert("Failed to load Facebook SDK. Check console for details.");
@@ -122,18 +135,20 @@ const SocialLogin = ({ label = "Continue with Facebook" }) => {
           return;
         }
       } else {
+        console.debug("[SocialLogin] FB already present on window");
         FB = window.FB;
       }
 
       // Now call FB.login
+      console.debug("[SocialLogin] calling FB.login");
       FB.login(
         async (resp) => {
-          console.log("FB.login callback", resp);
+          console.debug("[SocialLogin] FB.login callback", resp);
           if (popupWin && !popupWin.closed) {
             try {
               popupWin.close();
             } catch (e) {
-              console.log("Error closing popup window", e);
+              console.warn("[SocialLogin] Error closing popup window", e);
               // ignore
             }
           }
@@ -141,7 +156,12 @@ const SocialLogin = ({ label = "Continue with Facebook" }) => {
           if (resp && resp.status === "connected" && resp.authResponse) {
             const token = resp.authResponse.accessToken;
             try {
+              console.debug(
+                "[SocialLogin] POSTing token to server (authService.facebookLogin)",
+                { tokenPreview: token?.slice(0, 8) + "..." }
+              );
               const res = await fbLoginService(token);
+              console.debug("[SocialLogin] facebookLogin response", res);
               const data = res?.data || {};
               if (data.access || data.user) {
                 try {
@@ -154,7 +174,7 @@ const SocialLogin = ({ label = "Continue with Facebook" }) => {
                 alert(data.error || "Facebook login not configured on server");
               }
             } catch (err) {
-              console.error("facebookLogin POST failed", err);
+              console.error("[SocialLogin] facebookLogin POST failed", err);
               alert(err?.response?.data?.error || "Social login failed");
             }
           } else {
