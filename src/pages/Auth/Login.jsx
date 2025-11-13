@@ -6,7 +6,10 @@ import SocialLogin from "../../components/SocialLogin";
 
 const Login = () => {
   console.debug("[Login Page] Loaded");
-  console.debug("[Login Page] VITE_FACEBOOK_APP_ID =", import.meta.env.VITE_FACEBOOK_APP_ID);
+  console.debug(
+    "[Login Page] VITE_FACEBOOK_APP_ID =",
+    import.meta.env.VITE_FACEBOOK_APP_ID
+  );
   useEffect(() => {
     console.debug("[Login Page] Component mounted");
   }, []);
