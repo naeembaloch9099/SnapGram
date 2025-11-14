@@ -169,16 +169,21 @@ const SocialLogin = ({ label = "Continue with Facebook" }) => {
       // Call the streamlined synchronous function directly on click
       onClick={handleFacebook}
       disabled={loading}
-      className="w-full mt-2 border border-gray-300 rounded-xl py-2.5 flex items-center justify-center gap-3 hover:bg-gray-50"
+      className="w-full mt-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl py-2.5 flex items-center justify-center gap-3 font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
     >
-      <svg
-        className="w-5 h-5 text-blue-600"
-        viewBox="0 0 24 24"
-        fill="currentColor"
-      >
-        <path d="M22 12a10 10 0 10-11.5 9.9v-7h-2.1V12h2.1V9.8c0-2.1 1.2-3.3 3-3.3.9 0 1.8.2 1.8.2v2h-1c-1 0-1.3.6-1.3 1.2V12h2.3l-.4 2.9h-1.9v7A10 10 0 0022 12z" />
-      </svg>
-      {label}
+      {loading ? (
+        <>
+          <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+          <span>Connecting...</span>
+        </>
+      ) : (
+        <>
+          <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M22 12a10 10 0 10-11.5 9.9v-7h-2.1V12h2.1V9.8c0-2.1 1.2-3.3 3-3.3.9 0 1.8.2 1.8.2v2h-1c-1 0-1.3.6-1.3 1.2V12h2.3l-.4 2.9h-1.9v7A10 10 0 0022 12z" />
+          </svg>
+          {label}
+        </>
+      )}
     </button>
   );
 };
