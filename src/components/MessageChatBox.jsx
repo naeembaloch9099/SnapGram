@@ -1,5 +1,5 @@
 import React, { useMemo, useRef, useEffect, useContext, useState } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useLocation } from "react-router-dom";
 import {
   FiChevronLeft,
   FiMessageCircle,
@@ -23,6 +23,7 @@ import { AuthContext } from "../context/AuthContext";
 // --- YOUR PREVIOUS CODE (FOR TEXT/IMAGE/VOICE) ---
 import { sendMessage } from "../services/messageService";
 import { joinRoom, leaveRoom, on, emit } from "../services/socket"; // 'emit' is still used for 'markSeen'
+import api from "../services/api";
 
 // --- YOUR PREVIOUS CODE ---
 // This is your helper function, unchanged
@@ -232,6 +233,8 @@ const MessageChatBox = ({ conversationId }) => {
   const params = useParams();
   const id = conversationId || params.id;
   const navigate = useNavigate();
+  const location = useLocation();
+  const targetUser = location.state?.targetUser;
 
   // Helper: derive a presentable full name from a username when displayName is missing
   const deriveFullName = (username) => {
@@ -269,16 +272,46 @@ const MessageChatBox = ({ conversationId }) => {
   const [audioPreview, setAudioPreview] = useState(null);
   const mediaRecorderRef = useRef(null);
   const audioChunksRef = useRef([]);
+  const [creatingConversation, setCreatingConversation] = useState(false);
+  const [tempConversationId, setTempConversationId] = useState(null);
 
   // --- YOUR OLD useEffects: Unchanged ---
   const currentConversation = useMemo(() => {
-    return conversations.find((c) => String(c._id || c.id) === String(id));
-  }, [conversations, id]);
+    return conversations.find(
+      (c) => String(c._id || c.id) === String(id || tempConversationId)
+    );
+  }, [conversations, id, tempConversationId]);
 
   const messages = useMemo(
     () => currentConversation?.messages || [],
     [currentConversation]
   );
+
+  // Auto-create conversation if targetUser is provided
+  useEffect(() => {
+    if (!targetUser || !id || id !== "new" || creatingConversation) return;
+
+    const createConv = async () => {
+      setCreatingConversation(true);
+      try {
+        console.log("🔄 Creating conversation with", targetUser.username);
+        const res = await api.post("/messages/conversation", {
+          participantId: targetUser._id || targetUser.id,
+        });
+        const newConvId = res.data._id || res.data.id;
+        setTempConversationId(newConvId);
+        console.log("✅ Conversation created:", newConvId);
+        // Replace URL without reload
+        window.history.replaceState({}, "", `/messages/${newConvId}`);
+      } catch (err) {
+        console.error("❌ Failed to create conversation:", err);
+      } finally {
+        setCreatingConversation(false);
+      }
+    };
+
+    createConv();
+  }, [targetUser, id, creatingConversation]);
 
   useEffect(() => {
     if (chatRef.current)
@@ -289,7 +322,7 @@ const MessageChatBox = ({ conversationId }) => {
   }, [id, messages.length]);
 
   useEffect(() => {
-    if (!id) {
+    if (!id || id === "new") {
       return;
     }
     joinRoom(id);
@@ -307,7 +340,7 @@ const MessageChatBox = ({ conversationId }) => {
   }, [id, addMessageLocally]);
 
   useEffect(() => {
-    if (!id) {
+    if (!id || id === "new") {
       return;
     }
     const timer = setTimeout(async () => {
@@ -323,14 +356,17 @@ const MessageChatBox = ({ conversationId }) => {
     return () => clearTimeout(timer);
   }, [id, activeUser]);
 
-  const otherUser = useMemo(
-    () =>
-      getOtherParticipant(
-        currentConversation,
-        activeUser?._id || activeUser?.id
-      ),
-    [currentConversation, activeUser]
-  );
+  const otherUser = useMemo(() => {
+    // If we have targetUser from navigation state, use it immediately
+    if (targetUser) {
+      return targetUser;
+    }
+    // Otherwise get from conversation
+    return getOtherParticipant(
+      currentConversation,
+      activeUser?._id || activeUser?.id
+    );
+  }, [currentConversation, activeUser, targetUser]);
 
   // --- YOUR OLD HANDLERS (Unchanged) ---
   const handleMediaSelect = (e) => {
@@ -518,7 +554,56 @@ const MessageChatBox = ({ conversationId }) => {
   }
 
   if (!currentConversation || !otherUser) {
-    // Show a structured skeleton while the conversation loads
+    // If we're creating a conversation with targetUser, show the UI immediately
+    if (targetUser && (id === "new" || creatingConversation)) {
+      // Show chat UI with empty messages while conversation is being created
+      return (
+        <div className="flex flex-col h-full overflow-auto" ref={chatRef}>
+          {/* HEADER */}
+          <div className="chat-header fixed top-0 left-0 right-0 z-50 md:relative md:top-0 bg-white">
+            <div
+              className="p-3 border-b flex items-center gap-3"
+              style={{ paddingTop: "env(safe-area-inset-top, 0px)" }}
+            >
+              <button
+                type="button"
+                className="md:hidden p-2"
+                aria-label="Back"
+                onClick={() => navigate("/")}
+              >
+                <FiChevronLeft />
+              </button>
+              {targetUser.profilePic || targetUser.avatar ? (
+                <img
+                  src={targetUser.profilePic || targetUser.avatar}
+                  alt={targetUser.displayName || targetUser.username}
+                  className="w-8 h-8 rounded-full object-cover"
+                />
+              ) : (
+                <div className="w-8 h-8 rounded-full bg-slate-200" />
+              )}
+              <div className="flex-1">
+                <div className="font-semibold text-sm">
+                  {targetUser.displayName ||
+                    deriveFullName(targetUser.username)}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* MESSAGES */}
+          <div className="messages-container p-4 flex-1 space-y-3 pt-16 pb-28 md:pt-4 md:pb-0">
+            <div className="text-center text-slate-500 text-sm py-8">
+              {creatingConversation
+                ? "Starting conversation..."
+                : "No messages yet. Start the conversation!"}
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    // Show skeleton for loading state
     return (
       <div className="flex-1 flex flex-col h-full">
         <ChatSkeleton />

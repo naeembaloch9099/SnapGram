@@ -942,7 +942,17 @@ const FollowControls = ({
     if (loading || !user) return;
     setLoading(true);
     try {
-      await followUser(user.username);
+      const response = await followUser(user.username);
+      console.log("✅ [FollowControls] Follow response:", response?.data);
+
+      // Update local state immediately for instant UI feedback
+      if (user.isPrivate) {
+        setIsPending(true);
+        showToast("Follow request sent", "success");
+      } else {
+        setIsFollowing(true);
+        showToast("Now following", "success");
+      }
 
       // ALWAYS refresh profile to get updated follow state from backend
       if (onUpdated) {
@@ -962,10 +972,16 @@ const FollowControls = ({
     setShowDropdown(false);
     try {
       await followUser(user.username); // Toggle to unfollow
+
+      // Update local state immediately for instant UI feedback
+      setIsFollowing(false);
+      showToast("Unfollowed", "info");
+
       // ALWAYS refresh profile to get updated follow state
       if (onUpdated) await onUpdated();
     } catch (e) {
       console.error(`❌ [FollowControls] Unfollow error:`, e?.message || e);
+      showToast("Failed to unfollow", "error");
     } finally {
       setLoading(false);
     }
@@ -981,7 +997,11 @@ const FollowControls = ({
       // Call the same follow endpoint to cancel the request
       const response = await followUser(user.username);
       console.log(`✅ [CANCEL REQUEST] Response:`, response?.data);
+
+      // Update local state immediately for instant UI feedback
+      setIsPending(false);
       showToast(`Follow request cancelled`, "info");
+
       // ALWAYS refresh profile to get updated follow state
       if (onUpdated) await onUpdated();
     } catch (e) {
@@ -1027,7 +1047,6 @@ const FollowControls = ({
           <button
             onClick={async () => {
               try {
-                // Navigate to messages - create conversation if needed
                 console.log(
                   `💬 [FollowControls] Opening message with ${user.username}`
                 );
@@ -1040,17 +1059,29 @@ const FollowControls = ({
                 );
 
                 if (existingConv) {
+                  // Navigate immediately if conversation exists
                   navigate(`/messages/${existingConv._id || existingConv.id}`);
                 } else {
-                  // Create new conversation
-                  const res = await api.post("/messages/conversation", {
-                    participantId: user._id,
+                  // Navigate to messages page immediately with user info in state
+                  // The MessageChatBox will create the conversation on mount
+                  navigate(`/messages/new`, {
+                    state: {
+                      targetUser: {
+                        _id: user._id,
+                        id: user.id,
+                        username: user.username,
+                        displayName: user.displayName || user.name,
+                        profilePic: user.profilePic,
+                        avatar: user.avatar,
+                      },
+                    },
                   });
-                  navigate(`/messages/${res.data._id || res.data.id}`);
                 }
               } catch (err) {
                 console.error("Error opening chat:", err);
-                // showToast can be used here if available in FollowControls context
+                if (showToast) {
+                  showToast("Failed to open chat", "error");
+                }
               }
             }}
             className="px-6 py-2.5 bg-gray-100 text-gray-800 rounded-lg hover:bg-gray-200 transition font-medium"
