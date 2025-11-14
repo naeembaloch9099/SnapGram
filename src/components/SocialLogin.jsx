@@ -34,29 +34,21 @@ const SocialLogin = ({ label = "Continue with Facebook", mode = "login" }) => {
 
       console.log("🔴 Checking FB.getLoginStatus first...");
 
-      // CRITICAL FIX: Check login status first to see if popup will be blocked
-      window.FB.getLoginStatus((statusResponse) => {
-        console.log("🔴 FB.getLoginStatus response:", statusResponse);
-        console.log("🔴 Current status:", statusResponse.status);
-
-        if (statusResponse.status === "connected") {
-          console.log("🔴 Already connected! Using existing session...");
-          // User is already logged into Facebook and has authorized the app
-          handleFacebookResponse(statusResponse);
-        } else {
-          console.log("🔴 Not connected, need to call FB.login()...");
-          console.log("🔴 Attempting to open popup...");
-
-          // Try to open popup
-          window.FB.login(
-            (loginResponse) => {
-              console.log("🔴 FB.login response:", loginResponse);
-              handleFacebookResponse(loginResponse);
-            },
-            { scope: "email,public_profile" }
-          );
+      // Force FB.login to always show the dialog for better UX
+      // This ensures users see the Continue/Cancel options like Google
+      window.FB.login(
+        (loginResponse) => {
+          console.log("🔴 FB.login response:", loginResponse);
+          console.log("🔴 Status:", loginResponse?.status);
+          console.log("🔴 AuthResponse:", loginResponse?.authResponse);
+          handleFacebookResponse(loginResponse);
+        },
+        {
+          scope: "email,public_profile",
+          auth_type: "rerequest", // Forces dialog to appear
+          return_scopes: true,
         }
-      });
+      );
     } catch (e) {
       console.error("🔴 OUTER CATCH - Fatal error:", e);
       console.error("🔴 Error stack:", e.stack);
