@@ -26,8 +26,15 @@ const SocialLogin = ({ label = "Continue with Facebook" }) => {
 
     setLoading(true);
     try {
-      const appId = import.meta.env.VITE_FACEBOOK_APP_ID || null;
-      console.log("🔴 appId from env:", appId);
+      let appId = null;
+      try {
+        appId = import.meta.env.VITE_FACEBOOK_APP_ID || null;
+        console.log("🔴 appId from env:", appId);
+      } catch (envError) {
+        alert("❌ ERROR reading environment: " + envError.message);
+        setLoading(false);
+        return;
+      }
 
       if (!appId) {
         console.error("🔴 ERROR: appId is missing!");
@@ -120,11 +127,13 @@ const SocialLogin = ({ label = "Continue with Facebook" }) => {
       // Now call FB.login
       FB.login(
         async (resp) => {
+          alert("📩 Facebook responded! Status: " + resp?.status);
           console.log("🔴 [FB.login callback] Response:", resp);
           console.log("🔴 resp.status:", resp?.status);
           console.log("🔴 resp.authResponse:", resp?.authResponse);
 
           if (resp && resp.status === "connected" && resp.authResponse) {
+            alert("✅ Facebook login successful! Sending to server...");
             const token = resp.authResponse.accessToken;
             console.log("🔴 Token obtained, sending to server...");
             try {
@@ -160,7 +169,11 @@ const SocialLogin = ({ label = "Continue with Facebook" }) => {
           } else {
             console.warn("🔴 FB.login not connected or no authResponse");
             console.warn("🔴 resp.status:", resp?.status);
-            alert("Facebook login failed or was cancelled");
+            alert(
+              "❌ Facebook login failed! Status: " +
+                (resp?.status || "unknown") +
+                ". Check Facebook App settings."
+            );
           }
           setLoading(false);
         },
