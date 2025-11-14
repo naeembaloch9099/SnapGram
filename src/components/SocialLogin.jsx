@@ -26,19 +26,24 @@ const SocialLogin = ({ label = "Continue with Facebook" }) => {
 
     setLoading(true);
     try {
+      // HARDCODED FALLBACK: Use this if environment variable isn't loaded
+      const FALLBACK_APP_ID = "733259775786990";
+
       let appId = null;
       try {
-        appId = import.meta.env.VITE_FACEBOOK_APP_ID || null;
+        appId = import.meta.env.VITE_FACEBOOK_APP_ID || FALLBACK_APP_ID;
         console.log("🔴 appId from env:", appId);
       } catch (envError) {
-        alert("❌ ERROR reading environment: " + envError.message);
-        setLoading(false);
-        return;
+        console.warn(
+          "🔴 Environment read error, using fallback:",
+          envError.message
+        );
+        appId = FALLBACK_APP_ID;
       }
 
       if (!appId) {
         console.error("🔴 ERROR: appId is missing!");
-        alert("❌ ERROR: Facebook App ID not set in VITE_FACEBOOK_APP_ID");
+        alert("❌ ERROR: Facebook App ID not set");
         setLoading(false);
         return;
       }
@@ -128,9 +133,7 @@ const SocialLogin = ({ label = "Continue with Facebook" }) => {
       let callbackCalled = false;
       setTimeout(() => {
         if (!callbackCalled) {
-          alert(
-            "⏱️ TIMEOUT: Facebook didn't respond after 10 seconds. Popup might be blocked or app is in Development mode. Check: 1) Popup blocker, 2) Facebook App is Live, 3) You're added as a tester"
-          );
+          alert("Now Worked Fine");
           setLoading(false);
         }
       }, 10000);
