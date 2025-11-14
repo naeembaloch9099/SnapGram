@@ -483,7 +483,7 @@ const Signup = () => {
         </button>
         {/* Social signup */}
         <div className="mt-3">
-          <SocialLogin />
+          <SocialLogin mode="signup" />
         </div>
         {/* Display general errors */}
         {error && <p className="text-sm text-red-600 text-center">{error}</p>}

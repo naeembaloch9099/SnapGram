@@ -87,7 +87,7 @@ const Login = () => {
 
         {/* Social login */}
         <div className="mt-4">
-          <SocialLogin />
+          <SocialLogin mode="login" />
         </div>
 
         <div className="mt-6 text-center text-sm text-gray-600">
