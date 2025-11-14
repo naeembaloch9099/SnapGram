@@ -131,17 +131,21 @@ const SocialLogin = ({ label = "Continue with Facebook" }) => {
 
       // Add timeout to detect if FB.login callback is never called
       let callbackCalled = false;
-      setTimeout(() => {
+      const timeoutId = setTimeout(() => {
         if (!callbackCalled) {
-          alert("Now Worked Fine");
+          console.error("🔴 FB.login timeout - popup may be blocked");
+          alert(
+            "⚠️ Facebook popup was blocked or didn't open.\n\nPlease:\n1. Allow popups for this site\n2. Check if you're logged into Facebook\n3. Try again"
+          );
           setLoading(false);
         }
-      }, 10000);
+      }, 15000); // Increased to 15 seconds
 
       // Now call FB.login
       FB.login(
         async (resp) => {
           callbackCalled = true;
+          clearTimeout(timeoutId); // Clear the timeout
           alert("📩 Facebook responded! Status: " + resp?.status);
           console.log("🔴 [FB.login callback] Response:", resp);
           console.log("🔴 resp.status:", resp?.status);
