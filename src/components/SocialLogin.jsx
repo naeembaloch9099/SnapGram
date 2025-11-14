@@ -21,6 +21,9 @@ const SocialLogin = ({ label = "Continue with Facebook" }) => {
       import.meta.env.VITE_FACEBOOK_APP_ID
     );
 
+    // FORCE ALERT TO SEE IF FUNCTION IS CALLED
+    alert("Button clicked! Checking FB SDK...");
+
     setLoading(true);
     try {
       const appId = import.meta.env.VITE_FACEBOOK_APP_ID || null;
@@ -28,16 +31,19 @@ const SocialLogin = ({ label = "Continue with Facebook" }) => {
 
       if (!appId) {
         console.error("🔴 ERROR: appId is missing!");
-        alert("Facebook App ID not set in VITE_FACEBOOK_APP_ID");
+        alert("❌ ERROR: Facebook App ID not set in VITE_FACEBOOK_APP_ID");
         setLoading(false);
         return;
       }
+
+      alert("✅ App ID found: " + appId);
 
       // --- CRITICAL FIX: Ensure FB object is available ---
       let FB = window.FB;
       console.log("🔴 window.FB check 1:", !!FB);
 
       if (!FB) {
+        alert("⚠️ Facebook SDK not loaded. Attempting to load dynamically...");
         console.log(
           "🔴 FB not on window, attempting to load SDK dynamically..."
         );
@@ -88,23 +94,27 @@ const SocialLogin = ({ label = "Continue with Facebook" }) => {
 
           FB = await loadSDK(appId);
           console.log("🔴 SDK loaded dynamically, FB now:", !!FB);
+          alert("✅ Facebook SDK loaded successfully!");
         } catch (sdkErr) {
           console.error("🔴 ERROR loading SDK:", sdkErr);
-          alert("Failed to load Facebook SDK: " + sdkErr.message);
+          alert("❌ Failed to load Facebook SDK: " + sdkErr.message);
           setLoading(false);
           return;
         }
+      } else {
+        alert("✅ Facebook SDK already available!");
       }
 
       if (!FB) {
         console.error("🔴 FATAL: FB is still not available!");
         alert(
-          "Facebook SDK is not ready. Please refresh the page and try again."
+          "❌ FATAL: Facebook SDK is not ready. Please refresh the page and try again."
         );
         setLoading(false);
         return;
       }
 
+      alert("🚀 Calling FB.login()...");
       console.log("🔴 FB.login() is about to be called");
 
       // Now call FB.login
