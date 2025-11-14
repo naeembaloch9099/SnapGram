@@ -679,17 +679,25 @@ const FollowersModal = ({
               const isLoading = loading[u._id];
               const isFollowing = isUserFollowing(u);
 
+              // Check if this user in the list is the current logged-in user (yourself)
+              const isSelf =
+                String(u._id || u.id) ===
+                String(currentMe?._id || currentMe?.id);
+
               console.log(`📌 [RENDER] ${u.username}:`, {
                 type,
                 isFollowing,
+                isSelf,
                 should_show_message:
                   type === "followers" &&
                   currentMe?.username === username &&
-                  isFollowing,
+                  isFollowing &&
+                  !isSelf,
                 should_show_followback:
                   type === "followers" &&
                   currentMe?.username === username &&
-                  !isFollowing,
+                  !isFollowing &&
+                  !isSelf,
               });
 
               // Determine what buttons to show:
@@ -730,155 +738,170 @@ const FollowersModal = ({
 
                   {/* Right: Action Buttons */}
                   <div className="flex items-center gap-2 ml-2">
-                    {/* FOLLOWERS LIST - Own Profile */}
-                    {type === "followers" &&
-                    currentMe &&
-                    currentMe.username === username ? (
-                      <>
-                        {/* Case 1: Mutual follow (user is in my following list) */}
-                        {isFollowing && (
-                          <>
-                            {/* Message Button */}
-                            <button
-                              onClick={async () => {
-                                try {
-                                  // Check if conversation already exists
-                                  const existingConv = conversations?.find(
-                                    (c) =>
-                                      c.participants?.some(
-                                        (p) =>
-                                          String(p._id || p.id) ===
-                                          String(u._id)
-                                      )
-                                  );
-
-                                  if (existingConv) {
-                                    navigate(
-                                      `/messages/${
-                                        existingConv._id || existingConv.id
-                                      }`
-                                    );
-                                  } else {
-                                    // Create new conversation
-                                    const res = await api.post(
-                                      "/messages/conversation",
-                                      {
-                                        participantId: u._id,
-                                      }
-                                    );
-                                    navigate(
-                                      `/messages/${res.data._id || res.data.id}`
-                                    );
-                                  }
-                                } catch (err) {
-                                  console.error("Error opening chat:", err);
-                                  showToast("Failed to open chat", "error");
-                                }
-                              }}
-                              disabled={isLoading}
-                              className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition disabled:opacity-50 font-medium flex-shrink-0 text-sm"
-                              title={`Message ${u.username}`}
-                            >
-                              {isLoading ? "..." : "Message"}
-                            </button>
-                            {/* Cross Icon to Remove Follower */}
-                            <button
-                              onClick={() => handleRemoveFromFollowers(u)}
-                              disabled={isLoading}
-                              className="ml-2 p-2 hover:bg-gray-200 rounded-full transition flex-shrink-0 text-gray-600 hover:text-gray-900"
-                              title="Remove follower"
-                            >
-                              {isLoading ? (
-                                <span className="text-lg">...</span>
-                              ) : (
-                                <span className="text-2xl font-light">✕</span>
-                              )}
-                            </button>
-                          </>
-                        )}
-
-                        {/* Case 2: Not mutual (user is NOT in my following list) */}
-                        {!isFollowing &&
-                          (isPendingForUser(u) ? (
-                            <button
-                              onClick={() => handleCancelPending(u)}
-                              disabled={isLoading}
-                              className="px-6 py-2 border-2 border-indigo-600 text-indigo-600 rounded-lg hover:bg-indigo-50 transition disabled:opacity-50 font-medium flex-shrink-0"
-                              title={`Cancel follow request to ${u.username}`}
-                            >
-                              ✓ {isLoading ? "..." : "Requested"}
-                            </button>
-                          ) : (
-                            <button
-                              onClick={() => handleFollowBack(u)}
-                              disabled={isLoading}
-                              className="px-6 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition disabled:opacity-50 font-medium flex-shrink-0"
-                              title={`Follow ${u.username} back`}
-                            >
-                              {isLoading ? "..." : "Follow Back"}
-                            </button>
-                          ))}
-                      </>
+                    {/* Don't show any buttons if this is yourself */}
+                    {isSelf ? (
+                      <span className="text-sm text-gray-500 italic">You</span>
                     ) : (
-                      /* FOLLOWING LIST - Show Message + Cross icon for all */
-                      type === "following" && (
-                        <>
-                          {/* Message Button */}
-                          <button
-                            onClick={async () => {
-                              try {
-                                // Check if conversation already exists
-                                const existingConv = conversations?.find((c) =>
-                                  c.participants?.some(
-                                    (p) =>
-                                      String(p._id || p.id) === String(u._id)
-                                  )
-                                );
+                      <>
+                        {/* FOLLOWERS LIST - Own Profile */}
+                        {type === "followers" &&
+                        currentMe &&
+                        currentMe.username === username ? (
+                          <>
+                            {/* Case 1: Mutual follow (user is in my following list) */}
+                            {isFollowing && (
+                              <>
+                                {/* Message Button */}
+                                <button
+                                  onClick={async () => {
+                                    try {
+                                      // Check if conversation already exists
+                                      const existingConv = conversations?.find(
+                                        (c) =>
+                                          c.participants?.some(
+                                            (p) =>
+                                              String(p._id || p.id) ===
+                                              String(u._id)
+                                          )
+                                      );
 
-                                if (existingConv) {
-                                  navigate(
-                                    `/messages/${
-                                      existingConv._id || existingConv.id
-                                    }`
-                                  );
-                                } else {
-                                  // Create new conversation
-                                  const res = await api.post(
-                                    "/messages/conversation",
-                                    {
-                                      participantId: u._id,
+                                      if (existingConv) {
+                                        navigate(
+                                          `/messages/${
+                                            existingConv._id || existingConv.id
+                                          }`
+                                        );
+                                      } else {
+                                        // Create new conversation
+                                        const res = await api.post(
+                                          "/messages/conversation",
+                                          {
+                                            participantId: u._id,
+                                          }
+                                        );
+                                        navigate(
+                                          `/messages/${
+                                            res.data._id || res.data.id
+                                          }`
+                                        );
+                                      }
+                                    } catch (err) {
+                                      console.error("Error opening chat:", err);
+                                      showToast("Failed to open chat", "error");
                                     }
-                                  );
-                                  navigate(
-                                    `/messages/${res.data._id || res.data.id}`
-                                  );
-                                }
-                              } catch (err) {
-                                console.error("Error opening chat:", err);
-                                showToast("Failed to open chat", "error");
-                              }
-                            }}
-                            disabled={isLoading}
-                            className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition disabled:opacity-50 font-medium flex-shrink-0 text-sm"
-                            title={`Message ${u.username}`}
-                          >
-                            {isLoading ? "..." : "Message"}
-                          </button>
-                          {/* Cross Icon to Unfollow */}
-                          <button
-                            onClick={() => handleUnfollow(u)}
-                            disabled={isLoading}
-                            className="ml-2 p-2 hover:bg-gray-200 rounded-full transition flex-shrink-0 text-gray-600 hover:text-gray-900"
-                            title={`Unfollow ${u.username}`}
-                          >
-                            {isLoading ? (
-                              <span className="text-lg">...</span>
-                            ) : (
-                              <span className="text-2xl font-light">✕</span>
+                                  }}
+                                  disabled={isLoading}
+                                  className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition disabled:opacity-50 font-medium flex-shrink-0 text-sm"
+                                  title={`Message ${u.username}`}
+                                >
+                                  {isLoading ? "..." : "Message"}
+                                </button>
+                                {/* Cross Icon to Remove Follower */}
+                                <button
+                                  onClick={() => handleRemoveFromFollowers(u)}
+                                  disabled={isLoading}
+                                  className="ml-2 p-2 hover:bg-gray-200 rounded-full transition flex-shrink-0 text-gray-600 hover:text-gray-900"
+                                  title="Remove follower"
+                                >
+                                  {isLoading ? (
+                                    <span className="text-lg">...</span>
+                                  ) : (
+                                    <span className="text-2xl font-light">
+                                      ✕
+                                    </span>
+                                  )}
+                                </button>
+                              </>
                             )}
-                          </button>
-                        </>
-                      )
+
+                            {/* Case 2: Not mutual (user is NOT in my following list) */}
+                            {!isFollowing &&
+                              (isPendingForUser(u) ? (
+                                <button
+                                  onClick={() => handleCancelPending(u)}
+                                  disabled={isLoading}
+                                  className="px-6 py-2 border-2 border-indigo-600 text-indigo-600 rounded-lg hover:bg-indigo-50 transition disabled:opacity-50 font-medium flex-shrink-0"
+                                  title={`Cancel follow request to ${u.username}`}
+                                >
+                                  ✓ {isLoading ? "..." : "Requested"}
+                                </button>
+                              ) : (
+                                <button
+                                  onClick={() => handleFollowBack(u)}
+                                  disabled={isLoading}
+                                  className="px-6 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition disabled:opacity-50 font-medium flex-shrink-0"
+                                  title={`Follow ${u.username} back`}
+                                >
+                                  {isLoading ? "..." : "Follow Back"}
+                                </button>
+                              ))}
+                          </>
+                        ) : (
+                          /* FOLLOWING LIST - Show Message + Cross icon for all */
+                          type === "following" && (
+                            <>
+                              {/* Message Button */}
+                              <button
+                                onClick={async () => {
+                                  try {
+                                    // Check if conversation already exists
+                                    const existingConv = conversations?.find(
+                                      (c) =>
+                                        c.participants?.some(
+                                          (p) =>
+                                            String(p._id || p.id) ===
+                                            String(u._id)
+                                        )
+                                    );
+
+                                    if (existingConv) {
+                                      navigate(
+                                        `/messages/${
+                                          existingConv._id || existingConv.id
+                                        }`
+                                      );
+                                    } else {
+                                      // Create new conversation
+                                      const res = await api.post(
+                                        "/messages/conversation",
+                                        {
+                                          participantId: u._id,
+                                        }
+                                      );
+                                      navigate(
+                                        `/messages/${
+                                          res.data._id || res.data.id
+                                        }`
+                                      );
+                                    }
+                                  } catch (err) {
+                                    console.error("Error opening chat:", err);
+                                    showToast("Failed to open chat", "error");
+                                  }
+                                }}
+                                disabled={isLoading}
+                                className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition disabled:opacity-50 font-medium flex-shrink-0 text-sm"
+                                title={`Message ${u.username}`}
+                              >
+                                {isLoading ? "..." : "Message"}
+                              </button>
+                              {/* Cross Icon to Unfollow */}
+                              <button
+                                onClick={() => handleUnfollow(u)}
+                                disabled={isLoading}
+                                className="ml-2 p-2 hover:bg-gray-200 rounded-full transition flex-shrink-0 text-gray-600 hover:text-gray-900"
+                                title={`Unfollow ${u.username}`}
+                              >
+                                {isLoading ? (
+                                  <span className="text-lg">...</span>
+                                ) : (
+                                  <span className="text-2xl font-light">✕</span>
+                                )}
+                              </button>
+                            </>
+                          )
+                        )}
+                      </>
                     )}
                   </div>
                 </div>
@@ -924,6 +947,16 @@ const FollowControls = ({
         return match;
       });
 
+    console.log(
+      `🔍 [FollowControls useEffect] Checking follow state for ${user.username}`
+    );
+    console.log(`  - My ID: ${myId}`);
+    console.log(
+      `  - User followers:`,
+      user.followers?.map((f) => f._id || f.id || f)
+    );
+    console.log(`  - Is Following: ${following}`);
+
     setIsFollowing(following);
 
     // Check if follow request is pending
@@ -933,6 +966,13 @@ const FollowControls = ({
         const rId = r.user ? r.user._id || r.user.id || r.user : r;
         return String(rId) === String(myId);
       });
+
+    console.log(
+      `  - User follow requests:`,
+      user.followRequests?.map((r) => r.user?._id || r.user?.id || r.user || r)
+    );
+    console.log(`  - Is Pending: ${pending}`);
+
     setIsPending(pending);
   }, [user, me]);
 
@@ -945,18 +985,19 @@ const FollowControls = ({
       const response = await followUser(user.username);
       console.log("✅ [FollowControls] Follow response:", response?.data);
 
-      // Update local state immediately for instant UI feedback
-      if (user.isPrivate) {
-        setIsPending(true);
-        showToast("Follow request sent", "success");
-      } else {
-        setIsFollowing(true);
-        showToast("Now following", "success");
-      }
-
-      // ALWAYS refresh profile to get updated follow state from backend
+      // First refresh the profile to get the latest data from backend
       if (onUpdated) {
         await onUpdated();
+      }
+
+      // The useEffect will update the state based on the refreshed user data
+      // But show toast immediately based on the response
+      const { pending, requested, following } = response?.data || {};
+
+      if (pending || requested) {
+        showToast("Follow request sent", "success");
+      } else if (following) {
+        showToast(`You are now following ${user.username}`, "success");
       }
     } catch (e) {
       console.error(`❌ [FollowControls] Error:`, e?.message || e);
@@ -971,14 +1012,14 @@ const FollowControls = ({
     setLoading(true);
     setShowDropdown(false);
     try {
-      await followUser(user.username); // Toggle to unfollow
+      const response = await followUser(user.username); // Toggle to unfollow
+      console.log("✅ [FollowControls] Unfollow response:", response?.data);
 
-      // Update local state immediately for instant UI feedback
-      setIsFollowing(false);
-      showToast("Unfollowed", "info");
-
-      // ALWAYS refresh profile to get updated follow state
+      // Refresh profile first to get updated data
       if (onUpdated) await onUpdated();
+
+      // The useEffect will update the state, just show the toast
+      showToast("Unfollowed", "info");
     } catch (e) {
       console.error(`❌ [FollowControls] Unfollow error:`, e?.message || e);
       showToast("Failed to unfollow", "error");
@@ -998,12 +1039,11 @@ const FollowControls = ({
       const response = await followUser(user.username);
       console.log(`✅ [CANCEL REQUEST] Response:`, response?.data);
 
-      // Update local state immediately for instant UI feedback
-      setIsPending(false);
-      showToast(`Follow request cancelled`, "info");
-
-      // ALWAYS refresh profile to get updated follow state
+      // Refresh profile first to get updated data
       if (onUpdated) await onUpdated();
+
+      // The useEffect will update the state, just show the toast
+      showToast(`Follow request cancelled`, "info");
     } catch (e) {
       console.error(`❌ [CANCEL REQUEST] Error:`, e);
       console.error(`❌ [CANCEL REQUEST] Error message:`, e?.message);
