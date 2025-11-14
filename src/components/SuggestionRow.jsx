@@ -60,7 +60,11 @@ const SuggestionRow = ({ suggestion, onToggle }) => {
     // If already following
     if (state.isFollowing)
       return (
-        <button className="px-4 py-1 rounded bg-gray-100 text-sm">
+        <button 
+          onClick={handleFollow}
+          className="px-4 py-1.5 rounded-lg bg-[#EFEFEF] text-[#262626] text-sm font-semibold hover:bg-[#DBDBDB] transition-colors duration-200"
+          style={{ fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' }}
+        >
           Following
         </button>
       );
@@ -69,14 +73,19 @@ const SuggestionRow = ({ suggestion, onToggle }) => {
       // if requested true show Requested, else show Follow (which will create request)
       if (state.requested)
         return (
-          <button className="px-4 py-1 rounded bg-yellow-400 text-sm">
+          <button 
+            onClick={handleFollow}
+            className="px-4 py-1.5 rounded-lg bg-[#EFEFEF] text-[#262626] text-sm font-semibold hover:bg-[#DBDBDB] transition-colors duration-200"
+            style={{ fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' }}
+          >
             Requested
           </button>
         );
       return (
         <button
           onClick={handleFollow}
-          className="px-4 py-1 rounded bg-blue-600 text-white text-sm"
+          className="px-4 py-1.5 rounded-lg bg-[#0095F6] text-white text-sm font-semibold hover:bg-[#1877F2] transition-colors duration-200"
+          style={{ fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' }}
         >
           Follow
         </button>
@@ -86,7 +95,8 @@ const SuggestionRow = ({ suggestion, onToggle }) => {
     return (
       <button
         onClick={handleFollow}
-        className="px-4 py-1 rounded bg-blue-600 text-white text-sm"
+        className="px-4 py-1.5 rounded-lg bg-[#0095F6] text-white text-sm font-semibold hover:bg-[#1877F2] transition-colors duration-200"
+        style={{ fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' }}
       >
         Follow
       </button>
@@ -94,20 +104,22 @@ const SuggestionRow = ({ suggestion, onToggle }) => {
   };
 
   return (
-    <div className="flex items-center gap-3 px-3 py-2 hover:bg-gray-50">
+    <div className="flex items-center gap-3 px-4 py-3 hover:bg-[#FAFAFA] transition-colors duration-200 cursor-pointer">
       <img
         src={
           state.avatar || state.profilePic || "https://via.placeholder.com/48"
         }
         alt="avatar"
-        className="w-10 h-10 rounded-full object-cover"
+        className="w-11 h-11 rounded-full object-cover"
+        style={{ boxShadow: '0 0 0 1px rgba(0,0,0,0.1)' }}
       />
       <div className="flex-1 min-w-0">
         <div className="flex items-center justify-between">
           <div className="truncate">
             <Link
               to={`/profile/${state.username}`}
-              className="font-semibold text-sm truncate block"
+              className="font-semibold text-sm text-[#262626] truncate block hover:opacity-70 transition-opacity"
+              style={{ fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' }}
               onClick={(e) => {
                 // show a small inline loader before navigation for perceived speed
                 // prevent default and navigate programmatically after a tiny delay
@@ -119,15 +131,15 @@ const SuggestionRow = ({ suggestion, onToggle }) => {
             >
               {navLoading ? (
                 <span
-                  className="inline-block w-4 h-4 border-2 border-t-transparent border-white rounded-full animate-spin"
+                  className="inline-block w-4 h-4 border-2 border-t-transparent border-[#0095F6] rounded-full animate-spin"
                   aria-hidden="true"
                 />
               ) : (
                 state.username
               )}
             </Link>
-            <div className="text-xs text-gray-500 truncate">
-              {state.displayName || ""}
+            <div className="text-xs text-[#737373] truncate" style={{ fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' }}>
+              {state.displayName || state.name || ""}
             </div>
           </div>
         </div>

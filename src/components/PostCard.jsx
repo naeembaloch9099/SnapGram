@@ -301,10 +301,10 @@ const PostCard = ({ post, onAddComment, showComments = true }) => {
   // ---------------------------------------------
 
   return (
-    <article className="bg-white rounded-lg shadow-sm overflow-visible">
-      <div className="p-4">
-        <div className="flex items-center gap-3 mb-4">
-          <div className="w-12 h-12 bg-slate-200 rounded-full flex-shrink-0 overflow-hidden">
+    <article className="bg-white/90 backdrop-blur-xl rounded-3xl shadow-lg hover:shadow-2xl overflow-hidden border border-gray-100/50 transition-all duration-300">
+      <div className="p-4 sm:p-6">
+        <div className="flex items-center gap-3 sm:gap-4 mb-4">
+          <div className="w-11 h-11 sm:w-12 sm:h-12 bg-gradient-to-br from-indigo-100 to-pink-100 rounded-full flex-shrink-0 overflow-hidden ring-2 ring-white shadow-md">
             {post?.profilePic && (
               <img
                 src={post.profilePic}
@@ -313,14 +313,16 @@ const PostCard = ({ post, onAddComment, showComments = true }) => {
               />
             )}
           </div>
-          <div className="flex-1">
-            <div className="font-semibold text-sm">{ownerName}</div>
-            <div className="text-xs text-slate-500">
+          <div className="flex-1 min-w-0">
+            <div className="font-semibold text-sm sm:text-base text-gray-900 truncate">
+              {ownerName}
+            </div>
+            <div className="text-xs sm:text-sm text-gray-500">
               {formatDate(post?.createdAt || new Date().toISOString())}
             </div>
           </div>
           {/* Owner-only options menu (three-dot) */}
-          <div className="relative">
+          <div className="relative flex-shrink-0">
             {activeUser?.username === post?.owner && (
               <div ref={optionsMenuRef} className="relative">
                 <button
@@ -329,30 +331,30 @@ const PostCard = ({ post, onAddComment, showComments = true }) => {
                     setOptionsOpen((s) => !s);
                   }}
                   aria-label="Post options"
-                  className="p-1 text-gray-600 hover:text-gray-900"
+                  className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-full transition-all duration-200"
                 >
                   {/* simple three-dot icon */}
                   <span className="text-2xl leading-none">⋯</span>
                 </button>
                 {optionsOpen && (
-                  <div className="absolute right-0 mt-2 w-40 bg-white rounded shadow-lg ring-1 ring-black/5 z-50">
+                  <div className="absolute right-0 mt-2 w-44 bg-white/95 backdrop-blur-xl rounded-2xl shadow-xl ring-1 ring-black/10 z-50 overflow-hidden">
                     <button
                       onClick={() => {
                         setOptionsOpen(false);
                         setIsEditing(true);
                       }}
-                      className="w-full text-left px-3 py-2 hover:bg-gray-50"
+                      className="w-full text-left px-4 py-3 hover:bg-indigo-50 transition-colors text-sm font-medium"
                     >
-                      Edit
+                      ✏️ Edit
                     </button>
                     <button
                       onClick={() => {
                         setOptionsOpen(false);
                         setShowDeleteModal(true);
                       }}
-                      className="w-full text-left px-3 py-2 text-red-600 hover:bg-gray-50"
+                      className="w-full text-left px-4 py-3 text-red-600 hover:bg-red-50 transition-colors text-sm font-medium"
                     >
-                      Delete
+                      🗑️ Delete
                     </button>
                   </div>
                 )}
@@ -362,7 +364,8 @@ const PostCard = ({ post, onAddComment, showComments = true }) => {
         </div>
       </div>
 
-      <div className="w-full bg-slate-100 aspect-[4/3] overflow-hidden relative">
+      {/* Media Section with Rounded Corners */}
+      <div className="w-full bg-gradient-to-br from-gray-50 to-gray-100 aspect-[4/3] overflow-hidden relative rounded-2xl mx-4 sm:mx-6 mb-4">
         {post?.video ? (
           <>
             <video
@@ -385,9 +388,9 @@ const PostCard = ({ post, onAddComment, showComments = true }) => {
                 setPreviewMuted((s) => !s);
               }}
               aria-label={previewMuted ? "Unmute preview" : "Mute preview"}
-              className="absolute bottom-3 left-3 bg-black/60 text-white p-2 rounded-full z-10"
+              className="absolute bottom-3 left-3 bg-black/70 backdrop-blur text-white p-2.5 rounded-full z-10 hover:bg-black/80 transition-all shadow-lg"
             >
-              {previewMuted ? <FiVolumeX size={16} /> : <FiVolume2 size={16} />}
+              {previewMuted ? <FiVolumeX size={18} /> : <FiVolume2 size={18} />}
             </button>
           </>
         ) : post?.image ? (
@@ -397,39 +400,41 @@ const PostCard = ({ post, onAddComment, showComments = true }) => {
             className="w-full h-full object-cover"
           />
         ) : (
-          <div className="w-full h-full bg-slate-100" />
+          <div className="w-full h-full bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center">
+            <span className="text-5xl opacity-30">📷</span>
+          </div>
         )}
       </div>
 
-      <div className="p-4">
+      <div className="px-4 sm:px-6 pb-4 sm:pb-6">
         {/* --- ACTIONS/STATS SECTION --- */}
-        <div className="flex items-center justify-between mb-3">
-          <div className="flex items-center gap-4 text-slate-600">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-5 text-gray-600">
             {/* Like Button + Count */}
-            <div className="flex items-center gap-1.5">
+            <div className="flex items-center gap-2">
               <button
                 type="button"
                 aria-label="like"
-                className="hover:scale-110 transition"
+                className="hover:scale-110 active:scale-95 transition-transform"
                 onClick={handleToggleLike}
               >
                 {isLiked ? (
-                  <AiFillHeart size={20} className="text-red-500" />
+                  <AiFillHeart size={22} className="text-red-500" />
                 ) : (
-                  <FiHeart size={20} />
+                  <FiHeart size={22} />
                 )}
               </button>
-              <span className="text-sm text-slate-700 font-medium">
+              <span className="text-sm sm:text-base text-gray-800 font-semibold">
                 {formatLikes(post?.likes || 0)}
               </span>
             </div>
 
             {/* Comment Button + Count */}
-            <div className="flex items-center gap-1.5">
+            <div className="flex items-center gap-2">
               <button
                 type="button"
                 aria-label="comment"
-                className="hover:scale-110 transition"
+                className="hover:scale-110 active:scale-95 transition-transform"
                 onClick={() => {
                   if (showComments) {
                     commentInputRef.current?.focus();
@@ -439,15 +444,15 @@ const PostCard = ({ post, onAddComment, showComments = true }) => {
                   }
                 }}
               >
-                <FiMessageCircle size={20} />
+                <FiMessageCircle size={22} />
               </button>
-              <span className="text-sm text-slate-700 font-medium">
+              <span className="text-sm sm:text-base text-gray-800 font-semibold">
                 {formatLikes(totalCommentsCount || 0)}
               </span>
             </div>
 
             {/* Repost Button + Count */}
-            <div className="flex items-center gap-1.5">
+            <div className="flex items-center gap-2">
               <button
                 type="button"
                 aria-label="repost"

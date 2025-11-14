@@ -145,9 +145,43 @@ const Profile = () => {
   // If not logged in and no remote profile
   if (!me && !user) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-screen p-6 text-center bg-gray-50">
-        <div className="bg-gray-200 border-2 border-dashed rounded-xl w-24 h-24 mb-6" />
-        <p className="text-lg font-medium text-gray-700 mb-2">Not logged in</p>
+      <div className="flex flex-col items-center justify-center min-h-screen p-6 text-center bg-[#FAFAFA]">
+        <div className="w-24 h-24 rounded-full border-2 border-[#DBDBDB] flex items-center justify-center mb-6">
+          <svg
+            aria-label="Profile"
+            className="w-12 h-12 text-[#262626]"
+            fill="currentColor"
+            height="77"
+            role="img"
+            viewBox="0 0 77 77"
+            width="77"
+          >
+            <circle
+              cx="38.5"
+              cy="38.5"
+              fill="none"
+              r="36.5"
+              stroke="currentColor"
+              strokeWidth="2"
+            ></circle>
+            <path
+              d="M38.5 46.423a11.346 11.346 0 1 1 0-22.692 11.346 11.346 0 0 1 0 22.692Zm0-20.692a9.346 9.346 0 1 0 0 18.692 9.346 9.346 0 0 0 0-18.692ZM22.077 64.615a13.423 13.423 0 0 1 13.423-13.423h6a13.423 13.423 0 0 1 13.423 13.423"
+              fill="none"
+              stroke="currentColor"
+              strokeLinejoin="round"
+              strokeWidth="2"
+            ></path>
+          </svg>
+        </div>
+        <p
+          className="text-base font-semibold text-[#262626] mb-1"
+          style={{
+            fontFamily:
+              '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+          }}
+        >
+          Not logged in
+        </p>
         <p className="text-sm text-gray-500 mb-6">
           Sign in to view your profile
         </p>

@@ -13,3 +13,7 @@ export const followUser = async (username) => {
 export const unfollowUser = (username) =>
   api.post(`/users/${username}/unfollow`);
 export const updateProfile = (payload) => api.patch(`/users/me`, payload);
+
+// Fetch suggested users (random users)
+export const fetchSuggestions = (limit = 3) =>
+  api.get(`/users/suggestions?limit=${limit}`);

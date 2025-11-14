@@ -33,8 +33,44 @@ const NotificationsList = ({
 
   if (!Array.isArray(list) || list.length === 0) {
     return (
-      <div className="py-8 text-center text-sm text-slate-500">
-        No notifications yet
+      <div className="py-16 text-center">
+        <div className="w-20 h-20 rounded-full border-2 border-[#262626] flex items-center justify-center mx-auto mb-4">
+          <svg
+            aria-label="Notifications"
+            className="w-10 h-10"
+            fill="currentColor"
+            height="96"
+            role="img"
+            viewBox="0 0 96 96"
+            width="96"
+          >
+            <path
+              d="M75 24.401V49.95c0 13.613-9.76 25.079-22.816 27.499L48 81.05l-4.184-3.601C30.76 75.029 21 63.563 21 49.949V24.401l27-8.1 27 8.1Z"
+              fill="none"
+              stroke="currentColor"
+              strokeLinejoin="round"
+              strokeWidth="2"
+            ></path>
+          </svg>
+        </div>
+        <p
+          className="text-sm text-[#262626] font-semibold mb-1"
+          style={{
+            fontFamily:
+              '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+          }}
+        >
+          No notifications yet
+        </p>
+        <p
+          className="text-xs text-[#737373]"
+          style={{
+            fontFamily:
+              '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+          }}
+        >
+          When someone likes or comments on your posts, you'll see it here.
+        </p>
       </div>
     );
   }

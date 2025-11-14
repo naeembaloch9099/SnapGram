@@ -612,24 +612,17 @@ const MessageChatBox = ({ conversationId }) => {
   }
 
   return (
-    <div className="flex flex-col h-full overflow-auto" ref={chatRef}>
-      {/* HEADER (Updated with new onClick) */}
-      <div className="chat-header fixed top-0 left-0 right-0 z-50 md:relative md:top-0 bg-white">
-        <div
-          className="p-3 border-b flex items-center gap-3"
-          style={{ paddingTop: "env(safe-area-inset-top, 0px)" }}
-        >
+    <div className="flex flex-col h-full">
+      {/* Instagram-style Header */}
+      <div className="border-b border-[#DBDBDB] px-5 py-3 flex items-center justify-between bg-white">
+        <div className="flex items-center gap-3">
           <button
             type="button"
-            className="md:hidden p-2"
-            aria-label="Back to home"
-            title="Back to home"
-            onClick={() => {
-              // navigate back to home (or change to another interesting page)
-              navigate("/");
-            }}
+            className="md:hidden -ml-2"
+            aria-label="Back"
+            onClick={() => navigate("/messages")}
           >
-            <FiChevronLeft />
+            <FiChevronLeft size={28} className="text-[#262626]" />
           </button>
           {otherUser?.profilePic ? (
             <img
@@ -638,93 +631,115 @@ const MessageChatBox = ({ conversationId }) => {
               className="w-10 h-10 rounded-full object-cover"
             />
           ) : (
-            <div className="w-10 h-10 rounded-full bg-slate-200" />
-          )}
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 flex-col text-left">
-              {/* Top line: full name (displayName or derived from username) */}
-              <div className="font-medium truncate text-sm">
-                {otherUser?.displayName
-                  ? otherUser.displayName
-                  : deriveFullName(otherUser?.username) || "User"}
-              </div>
-              {/* Below: always show @username (fallback to lowercased displayName or 'user') */}
-              <div className="text-xs text-slate-400 truncate -mt-0.5">
-                @
-                {(otherUser?.username || otherUser?.displayName || "user")
-                  .toString()
-                  .toLowerCase()}
-              </div>
+            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-400 via-pink-500 to-red-500 flex items-center justify-center text-white font-semibold">
+              {(otherUser?.displayName ||
+                otherUser?.username)?.[0]?.toUpperCase()}
             </div>
+          )}
+          <div>
+            <div className="font-semibold text-sm text-[#262626]">
+              {otherUser?.displayName || otherUser?.username || "User"}
+            </div>
+            <div className="text-xs text-[#737373]">Active now</div>
           </div>
-
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              className="p-2 text-slate-600"
-              aria-label="voice call"
-              onClick={() => handleStartCall("audio")}
-            >
-              <FiPhone />
-            </button>
-            <button
-              type="button"
-              className="p-2 text-slate-600"
-              aria-label="video call"
-              onClick={() => handleStartCall("video")}
-            >
-              <FiVideo />
-            </button>
-          </div>
+        </div>
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={() => handleStartCall("audio")}
+            className="p-2 hover:bg-gray-100 rounded-full transition"
+            aria-label="Voice call"
+          >
+            <FiPhone size={22} className="text-[#262626]" />
+          </button>
+          <button
+            type="button"
+            onClick={() => handleStartCall("video")}
+            className="p-2 hover:bg-gray-100 rounded-full transition"
+            aria-label="Video call"
+          >
+            <FiVideo size={22} className="text-[#262626]" />
+          </button>
         </div>
       </div>
 
-      {/* MESSAGES (Updated to style call messages) */}
-      <div className="messages-container p-4 flex-1 space-y-3 pt-16 pb-28 md:pt-4 md:pb-0">
+      {/* Messages Area - Instagram style */}
+      <div className="flex-1 overflow-y-auto px-5 py-4" ref={chatRef}>
         {messages.length === 0 ? (
-          <div className="text-center text-slate-500 text-sm py-8">
-            No messages yet. Start the conversation!
+          <div className="flex flex-col items-center justify-center h-full text-center">
+            {otherUser?.profilePic ? (
+              <img
+                src={otherUser.profilePic}
+                alt={otherUser.username}
+                className="w-20 h-20 rounded-full object-cover mb-3"
+              />
+            ) : (
+              <div className="w-20 h-20 rounded-full bg-gradient-to-br from-purple-400 via-pink-500 to-red-500 flex items-center justify-center text-white font-bold text-2xl mb-3">
+                {otherUser?.username?.[0]?.toUpperCase()}
+              </div>
+            )}
+            <p className="text-sm font-semibold text-[#262626] mb-1">
+              {otherUser?.username || "User"}
+            </p>
+            <p className="text-sm text-[#737373] mb-4">
+              {otherUser?.displayName || "No name"} • SnapGram
+            </p>
+            <p className="text-sm text-[#737373] mb-6">
+              No messages yet. Start the conversation!
+            </p>
           </div>
         ) : (
-          messages.map((m) => {
-            const isFromMe =
-              String(m.sender?._id || m.sender) ===
-              String(activeUser?._id || activeUser?.id);
-            return (
-              <div
-                key={m._id || m.id}
-                className={(() => {
-                  const isCall = m.text?.startsWith("[call-");
-                  const hasMedia = !!m.media || !!m.mediaUrl;
-                  // If this is a call/system message without media, keep it centered small text.
-                  if (isCall && !hasMedia)
-                    return "text-center text-slate-500 text-xs my-4";
-                  // Otherwise render as a normal chat bubble (left or right aligned).
-                  return `max-w-[80%] ${
-                    isFromMe
-                      ? "ml-auto bg-purple-600 text-white"
-                      : "bg-slate-100 text-slate-800"
-                  } p-3 rounded-lg`;
-                })()}
-              >
-                <MessageContent message={m} />
-                {!m.text?.startsWith("[call-") && (
+          <div className="space-y-2">
+            {messages.map((m) => {
+              const isFromMe =
+                String(m.sender?._id || m.sender) ===
+                String(activeUser?._id || activeUser?.id);
+              const isCall = m.text?.startsWith("[call-");
+              const hasMedia = !!m.media || !!m.mediaUrl;
+
+              if (isCall && !hasMedia) {
+                return (
                   <div
-                    className={`text-xs mt-1 text-right flex items-center justify-end gap-1 ${
-                      isFromMe ? "text-purple-200" : "text-slate-500"
+                    key={m._id || m.id}
+                    className="text-center text-xs text-[#737373] my-4"
+                  >
+                    <MessageContent message={m} />
+                  </div>
+                );
+              }
+
+              return (
+                <div
+                  key={m._id || m.id}
+                  className={`flex ${
+                    isFromMe ? "justify-end" : "justify-start"
+                  }`}
+                >
+                  <div
+                    className={`max-w-[65%] rounded-3xl px-4 py-2 ${
+                      isFromMe
+                        ? "bg-[#0095F6] text-white"
+                        : "bg-[#EFEFEF] text-[#262626] border border-[#DBDBDB]"
                     }`}
                   >
-                    <span>{formatMessageTime(m.createdAt)}</span>
-                    {isFromMe && (
-                      <span className="ml-1">
-                        {m.seen ? "✓✓ seen" : "✓ sent"}
-                      </span>
-                    )}
+                    <MessageContent message={m} />
+                    <div
+                      className={`text-xs mt-1 ${
+                        isFromMe ? "text-blue-100" : "text-[#737373]"
+                      }`}
+                    >
+                      {formatMessageTime(m.createdAt)}
+                      {isFromMe && (
+                        <span className="ml-1">
+                          {m.seen ? " • Seen" : " • Sent"}
+                        </span>
+                      )}
+                    </div>
                   </div>
-                )}
-              </div>
-            );
-          })
+                </div>
+              );
+            })}
+          </div>
         )}
       </div>
 
@@ -786,21 +801,45 @@ const MessageChatBox = ({ conversationId }) => {
         </div>
       )}
 
-      {/* INPUT BAR (Your old code, unchanged) */}
-      <div className="message-input-container fixed bottom-0 left-0 right-0 z-40 md:relative md:bottom-0 bg-white">
-        <div
-          className="bg-white p-3 border-t flex items-center gap-2 max-w-full overflow-x-hidden"
-          style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}
-        >
+      {/* Instagram-style Input Bar */}
+      <div className="border-t border-[#DBDBDB] px-5 py-3 bg-white">
+        <div className="flex items-center gap-3">
           <button
             type="button"
             onClick={() => mediaInputRef.current?.click()}
-            className="flex-shrink-0 p-2 sm:p-3 text-pink-600 bg-pink-100 rounded-full hover:bg-pink-200 transition"
-            aria-label="media"
-            title="Send photo or video"
+            className="flex-shrink-0 text-[#262626] hover:text-[#0095F6] transition-colors duration-200"
+            aria-label="Add media"
             disabled={isRecording}
           >
-            <FiImage size={20} />
+            <svg
+              aria-label="Attach media"
+              className="w-6 h-6"
+              fill="currentColor"
+              height="24"
+              role="img"
+              viewBox="0 0 24 24"
+              width="24"
+            >
+              <path
+                d="M6.549 5.013A1.557 1.557 0 1 0 4.985 6.58a1.557 1.557 0 0 0 1.564-1.567Z"
+                fillRule="evenodd"
+              ></path>
+              <path
+                d="M2 18.605l3.901-3.9a.908.908 0 0 1 1.284 0l2.807 2.806a.908.908 0 0 0 1.283 0l5.534-5.534a.908.908 0 0 1 1.283 0l3.905 3.905"
+                fill="none"
+                stroke="currentColor"
+                strokeLinejoin="round"
+                strokeWidth="2"
+              ></path>
+              <path
+                d="M18.44 2.004A3.56 3.56 0 0 1 22 5.564h0v12.873a3.56 3.56 0 0 1-3.56 3.56H5.568a3.56 3.56 0 0 1-3.56-3.56V5.563a3.56 3.56 0 0 1 3.56-3.56Z"
+                fill="none"
+                stroke="currentColor"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth="2"
+              ></path>
+            </svg>
           </button>
 
           <input
@@ -812,18 +851,26 @@ const MessageChatBox = ({ conversationId }) => {
           />
 
           {isRecording ? (
-            <div className="flex-1 flex items-center justify-between bg-slate-100 rounded-full px-3 sm:px-4 py-2 sm:py-3">
-              <span className="text-sm text-red-600 animate-pulse">
-                Recording...
-              </span>
+            <div className="flex-1 flex items-center justify-between bg-[#EFEFEF] rounded-full px-4 py-2.5 transition-all">
+              <div className="flex items-center gap-2">
+                <div className="w-2 h-2 rounded-full bg-red-600 animate-pulse"></div>
+                <span
+                  className="text-sm text-[#262626] font-medium"
+                  style={{
+                    fontFamily:
+                      '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+                  }}
+                >
+                  Recording voice message...
+                </span>
+              </div>
               <button
                 type="button"
                 onClick={handleStopRecording}
-                className="flex-shrink-0 p-2 text-white bg-red-600 rounded-full"
-                aria-label="stop recording"
-                title="Stop recording"
+                className="flex-shrink-0 p-1.5 text-white bg-red-600 rounded-full hover:bg-red-700 transition"
+                aria-label="Stop recording"
               >
-                <FiSquare size={16} />
+                <FiSquare size={14} />
               </button>
             </div>
           ) : (
@@ -833,7 +880,11 @@ const MessageChatBox = ({ conversationId }) => {
                 value={messageText}
                 onChange={(e) => setMessageText(e.target.value)}
                 onKeyPress={handleKeyPress}
-                className="flex-1 min-w-0 bg-slate-100 rounded-full px-3 sm:px-4 py-2 sm:py-3 outline-none text-sm"
+                className="flex-1 min-w-0 bg-white border border-[#DBDBDB] rounded-full px-4 py-2.5 outline-none text-sm focus:border-[#262626] transition-all duration-200 placeholder:text-[#8E8E8E]"
+                style={{
+                  fontFamily:
+                    '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+                }}
                 disabled={!!selectedMedia}
               />
 
@@ -841,26 +892,58 @@ const MessageChatBox = ({ conversationId }) => {
                 <button
                   type="button"
                   onClick={handleSendMessage}
-                  disabled={!messageText.trim() || sending}
-                  className="flex-shrink-0 p-2 sm:p-3 text-slate-600 disabled:text-slate-300 hover:text-purple-600 disabled:hover:text-slate-300 transition duration-200"
-                  aria-label="send"
-                  title="Send message"
+                  disabled={sending}
+                  className="flex-shrink-0 font-semibold text-sm text-[#0095F6] hover:text-[#00376B] transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                  style={{
+                    fontFamily:
+                      '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+                  }}
+                  aria-label="Send message"
                 >
-                  <FiSend
-                    size={20}
-                    className={sending ? "animate-pulse" : ""}
-                  />
+                  {sending ? (
+                    <svg
+                      className="animate-spin h-5 w-5"
+                      xmlns="http://www.w3.org/2000/svg"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                    >
+                      <circle
+                        className="opacity-25"
+                        cx="12"
+                        cy="12"
+                        r="10"
+                        stroke="currentColor"
+                        strokeWidth="4"
+                      ></circle>
+                      <path
+                        className="opacity-75"
+                        fill="currentColor"
+                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                      ></path>
+                    </svg>
+                  ) : (
+                    "Send"
+                  )}
                 </button>
               ) : (
                 <button
                   type="button"
                   onClick={handleStartRecording}
-                  disabled={sending || !!selectedMedia}
-                  className="flex-shrink-0 p-2 sm:p-3 text-slate-600 disabled:text-slate-300 hover:text-purple-600 disabled:hover:text-slate-300 transition duration-200"
-                  aria-label="record voice message"
-                  title="Record voice message"
+                  className="flex-shrink-0 text-[#262626] hover:text-[#0095F6] transition-colors duration-200"
+                  aria-label="Record voice message"
                 >
-                  <FiMic size={20} />
+                  <svg
+                    aria-label="Voice message"
+                    className="w-6 h-6"
+                    fill="currentColor"
+                    height="24"
+                    role="img"
+                    viewBox="0 0 24 24"
+                    width="24"
+                  >
+                    <path d="M19.5 10.671v.329c0 4.14-3.36 7.5-7.5 7.5s-7.5-3.36-7.5-7.5v-.329a1.5 1.5 0 0 0-3 0v.329c0 5.518 4.159 10.073 9.5 10.781V24h3v-2.219c5.341-.708 9.5-5.263 9.5-10.781v-.329a1.5 1.5 0 0 0-3 0Z"></path>
+                    <path d="M12 15.5a4 4 0 0 0 4-4V5a4 4 0 1 0-8 0v6.5a4 4 0 0 0 4 4Z"></path>
+                  </svg>
                 </button>
               )}
             </>

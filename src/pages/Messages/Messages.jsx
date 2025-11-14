@@ -1,62 +1,76 @@
 import React from "react";
 import { useParams, Link } from "react-router-dom";
-import { FiArrowLeft } from "react-icons/fi";
 import MessageList from "../../components/MessageList";
 import MessageChatBox from "../../components/MessageChatBox";
 
-// Messages page renders the list and chat. On mobile, when a conversation is
-// selected we hide the list and show the chat full-screen (mimicking the app
-// behavior in your screenshots).
+// Instagram-style Messages page with exact 3-column layout
 const Messages = () => {
   const { id } = useParams();
 
-  if (!id) {
-    // Full-page messages list (mobile and desktop) — header matches Notifications page style
-    return (
-      <div className="min-h-screen bg-slate-50">
-        <div className="max-w-3xl mx-auto p-4">
-          <div className="flex items-center gap-4 mb-4">
-            <Link
-              to="/"
-              className="text-slate-600 p-2 rounded hover:bg-slate-100"
-              aria-label="Back to home"
-            >
-              <FiArrowLeft size={20} />
-            </Link>
-            <h1 className="text-2xl font-semibold">Messages</h1>
-          </div>
-
-          <div className="bg-white rounded-md shadow-sm">
-            {/* render the list without the internal header and with inner padding to match Notifications layout */}
-            <div className="p-2">
-              <MessageList showHeader={false} embedded={true} />
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
+  // Mobile: single view - either list or chat
+  // Desktop: split view - list + chat side by side
   return (
-    <div className="max-w-5xl mx-auto p-0 md:p-4 flex gap-4 h-[calc(100vh-4rem)] md:h-auto messaging-container">
-      {/* left: list (on small = full width when no convo selected; on md it's a column) */}
+    <div
+      className="h-screen md:h-[calc(100vh-4rem)] flex bg-[#FAFAFA]"
+      style={{
+        fontFamily:
+          '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+      }}
+    >
+      {/* Left: Message List - Instagram style */}
       <div
-        className={`w-full md:w-80 border-r bg-white h-full chat-sidebar ${
+        className={`w-full md:w-[350px] lg:w-[400px] bg-white h-full ${
           id ? "hidden md:block" : "block"
         }`}
+        style={{ boxShadow: "0 0 0 1px rgba(0,0,0,0.1)" }}
       >
         <MessageList />
       </div>
 
-      {/* center/right: chat area
-          - On small screens we only show the chat when an id is present (so tapping a contact opens a full-screen chat).
-          - On md+ screens the chat is always visible as the right pane. */}
+      {/* Right: Chat Area - Instagram style */}
       <div
-        className={`${
-          id ? "flex-1 block" : "hidden md:flex-1 md:block"
-        } bg-white h-full chat-main`}
+        className={`flex-1 bg-white h-full ${
+          id
+            ? "block"
+            : "hidden md:flex md:flex-col md:items-center md:justify-center"
+        }`}
       >
-        <MessageChatBox conversationId={id} />
+        {id ? (
+          <MessageChatBox conversationId={id} />
+        ) : (
+          // Empty state when no conversation selected (desktop only)
+          <div className="hidden md:flex flex-col items-center justify-center h-full px-4">
+            <div className="w-24 h-24 rounded-full border-2 border-[#262626] flex items-center justify-center mb-5">
+              <svg
+                aria-label="Direct"
+                className="w-12 h-12"
+                fill="currentColor"
+                height="96"
+                role="img"
+                viewBox="0 0 96 96"
+                width="96"
+              >
+                <path
+                  d="M48 0C21.532 0 0 21.533 0 48s21.532 48 48 48 48-21.532 48-48S74.468 0 48 0Zm0 94C22.636 94 2 73.364 2 48S22.636 2 48 2s46 20.636 46 46-20.636 46-46 46Zm12.227-53.284-7.257 5.507c-.49.37-1.166.375-1.661.005l-5.373-4.031a3.453 3.453 0 0 0-4.989.921l-6.756 10.718c-.653 1.027.615 2.189 1.582 1.453l7.257-5.507a1.382 1.382 0 0 1 1.661-.005l5.373 4.031a3.453 3.453 0 0 0 4.989-.92l6.756-10.719c.653-1.027-.615-2.189-1.582-1.453Z"
+                  fillRule="evenodd"
+                ></path>
+              </svg>
+            </div>
+            <h2 className="text-[22px] font-light text-[#262626] mb-2">
+              Your messages
+            </h2>
+            <p className="text-sm text-[#737373] text-center max-w-[350px] mb-6">
+              Send private photos and messages to a friend or group.
+            </p>
+            <Link
+              to="/messages/new"
+              className="px-6 py-2 bg-[#0095F6] text-white font-semibold rounded-lg hover:bg-[#1877F2] transition-all duration-200"
+              style={{ boxShadow: "0 0 0 1px rgba(0,0,0,0.1)" }}
+            >
+              Send Message
+            </Link>
+          </div>
+        )}
       </div>
     </div>
   );

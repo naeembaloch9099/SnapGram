@@ -219,11 +219,17 @@ const Explore = () => {
     : posts;
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-black">
+    <div
+      className="min-h-screen bg-[#FAFAFA]"
+      style={{
+        fontFamily:
+          '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+      }}
+    >
       <style dangerouslySetInnerHTML={{ __html: shimmerStyle }} />
 
-      {/* Sticky Search */}
-      <div className="sticky top-0 z-50 bg-white dark:bg-black border-b border-gray-200 dark:border-gray-800 backdrop-blur-sm bg-opacity-95">
+      {/* Instagram-style Search Header */}
+      <div className="sticky top-0 z-50 bg-white border-b border-[#DBDBDB] backdrop-blur-sm bg-opacity-95">
         <div className="max-w-5xl mx-auto px-4 py-3">
           {/* Search Bar */}
           <div className="relative mb-3">
@@ -233,34 +239,42 @@ const Explore = () => {
               onChange={handleSearchChange}
               onFocus={() => suggestions.length > 0 && setShowSuggestions(true)}
               placeholder="Search"
-              className="w-full pl-10 pr-10 py-2.5 bg-gray-100 dark:bg-gray-800 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white dark:focus:bg-gray-900 transition-all"
+              className="w-full pl-10 pr-10 py-2 bg-[#EFEFEF] rounded-lg text-sm outline-none focus:bg-white border border-transparent focus:border-[#DBDBDB] transition-all placeholder:text-[#8E8E8E]"
+              style={{
+                fontFamily:
+                  '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+              }}
               aria-label="Search"
             />
-            <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500" />
+            <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#8E8E8E]" />
             {searchQuery && (
               <button
                 onClick={() => setSearchQuery("")}
-                className="absolute right-3 top-1/2 -translate-y-1/2"
+                className="absolute right-3 top-1/2 -translate-y-1/2 p-1 hover:bg-gray-100 rounded-full transition"
                 aria-label="Clear"
               >
-                <FiX className="w-4 h-4 text-gray-500 hover:text-gray-700" />
+                <FiX className="w-4 h-4 text-[#262626]" />
               </button>
             )}
           </div>
 
-          {/* Search Mode Tabs */}
-          <div className="flex gap-4 border-b border-gray-200 dark:border-gray-800">
+          {/* Search Mode Tabs - Instagram style */}
+          <div className="flex gap-8 border-b border-[#DBDBDB]">
             <button
               onClick={() => {
                 setSearchMode("accounts");
                 setSuggestions([]);
                 setShowSuggestions(false);
               }}
-              className={`pb-2 px-2 text-sm font-medium transition-colors ${
+              className={`pb-3 px-1 text-xs font-semibold uppercase tracking-wider transition-colors ${
                 searchMode === "accounts"
-                  ? "text-blue-600 border-b-2 border-blue-600"
-                  : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200"
+                  ? "text-[#262626] border-b border-[#262626]"
+                  : "text-[#8E8E8E] hover:text-[#262626]"
               }`}
+              style={{
+                fontFamily:
+                  '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+              }}
             >
               Accounts
             </button>
@@ -270,19 +284,29 @@ const Explore = () => {
                 setSuggestions([]);
                 setShowSuggestions(false);
               }}
-              className={`pb-2 px-2 text-sm font-medium transition-colors ${
+              className={`pb-3 px-1 text-xs font-semibold uppercase tracking-wider transition-colors ${
                 searchMode === "posts"
-                  ? "text-blue-600 border-b-2 border-blue-600"
-                  : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200"
+                  ? "text-[#262626] border-b border-[#262626]"
+                  : "text-[#8E8E8E] hover:text-[#262626]"
               }`}
+              style={{
+                fontFamily:
+                  '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+              }}
             >
               Posts
             </button>
           </div>
 
-          {/* Search Dropdown */}
+          {/* Search Dropdown - Instagram style */}
           {showSuggestions && (
-            <div className="absolute top-full left-0 right-0 mt-1 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl shadow-xl z-50 max-h-96 overflow-y-auto">
+            <div
+              className="absolute top-full left-0 right-0 mt-1 mx-4 bg-white border border-[#DBDBDB] rounded-lg shadow-xl z-50 max-h-96 overflow-y-auto"
+              style={{
+                boxShadow:
+                  "0 0 0 1px rgba(0,0,0,0.1), 0 8px 16px rgba(0,0,0,0.15)",
+              }}
+            >
               {suggestionsLoading ? (
                 <DesktopSearchSkeleton />
               ) : suggestions.length > 0 ? (

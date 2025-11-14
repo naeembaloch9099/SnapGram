@@ -82,12 +82,46 @@ const Home = () => {
   });
 
   return (
-    <div className="max-w-5xl mx-auto p-4">
-      <h1 className="text-2xl font-semibold mb-4">Home</h1>
-      <div className="space-y-4">
-        {normalizedFeed.map((p) => (
-          <PostCard key={p.id} post={p} />
-        ))}
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-indigo-50/30">
+      {/* Modern Header with Glass Effect */}
+      <div className="sticky top-0 z-40 bg-white/80 backdrop-blur-xl border-b border-gray-200/50 shadow-sm">
+        <div className="max-w-5xl mx-auto px-4 py-4">
+          <h1 className="text-3xl md:text-4xl font-bold bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 bg-clip-text text-transparent">
+            Home Feed
+          </h1>
+          <p className="text-sm text-gray-500 mt-1">
+            Discover what's happening
+          </p>
+        </div>
+      </div>
+
+      {/* Posts Grid with Cards */}
+      <div className="max-w-5xl mx-auto px-4 py-6 sm:py-8">
+        {normalizedFeed.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-16 sm:py-24">
+            <div className="w-20 h-20 sm:w-24 sm:h-24 bg-gradient-to-br from-indigo-100 to-pink-100 rounded-full flex items-center justify-center mb-4 shadow-lg">
+              <span className="text-4xl sm:text-5xl">📸</span>
+            </div>
+            <h3 className="text-lg sm:text-xl font-semibold text-gray-700 mb-2">
+              No posts yet
+            </h3>
+            <p className="text-sm sm:text-base text-gray-500">
+              Start following people to see their posts
+            </p>
+          </div>
+        ) : (
+          <div className="space-y-6 sm:space-y-8">
+            {normalizedFeed.map((p, index) => (
+              <div
+                key={p.id}
+                className="transform transition-all duration-300 hover:scale-[1.01]"
+                style={{ animationDelay: `${index * 50}ms` }}
+              >
+                <PostCard post={p} />
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );

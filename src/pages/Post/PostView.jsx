@@ -259,33 +259,48 @@ const PostView = () => {
   const hasComments = buildCommentTree.length > 0;
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="max-w-md mx-auto p-4">
-        {/* Header */}
-        <div className="flex items-center gap-4 mb-4 pb-2 border-b border-gray-200">
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-indigo-50/20">
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        {/* Header with glass effect */}
+        <div className="flex items-center gap-4 mb-6 pb-4 border-b border-gray-200/50 backdrop-blur-sm">
           <button
             onClick={handleBackClick}
-            className="p-2 rounded-full hover:bg-gray-100"
+            className="p-2.5 rounded-full hover:bg-gray-100 transition-all duration-200 hover:scale-110"
           >
-            <FiArrowLeft size={20} className="text-gray-600" />
+            <FiArrowLeft size={22} className="text-gray-700" />
           </button>
-          <h1 className="text-lg font-semibold text-gray-900">Post</h1>
+          <h1 className="text-xl sm:text-2xl font-bold bg-gradient-to-r from-indigo-600 to-pink-600 bg-clip-text text-transparent">
+            Post Details
+          </h1>
         </div>
-        {/* Post Card - showComments MUST be false here */}
-        <div className="bg-white rounded-lg shadow-sm mb-2 overflow-hidden">
+
+        {/* Post Card - Enhanced for big screens */}
+        <div className="mb-6">
           <PostCard post={post} showComments={false} />
         </div>
 
-        {/* Comments Section */}
-        <div className="bg-white rounded-lg shadow-sm">
-          {/* Full Comments List (Always rendered in PostView) */}
-          <div className={`space-y-4 py-4 ${!hasComments ? "block px-4" : ""}`}>
+        {/* Comments Section - Enhanced with glass effect */}
+        <div className="bg-white/90 backdrop-blur-xl rounded-3xl shadow-lg border border-gray-100/50 overflow-hidden">
+          {/* Full Comments List */}
+          <div
+            className={`space-y-4 py-6 px-4 sm:px-6 ${
+              !hasComments ? "block" : ""
+            }`}
+          >
             {hasComments ? (
               renderFullComments()
             ) : (
-              <p className="text-sm text-gray-500 text-center py-8">
-                No comments yet
-              </p>
+              <div className="text-center py-12">
+                <div className="w-16 h-16 bg-gradient-to-br from-indigo-100 to-pink-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <span className="text-3xl">💬</span>
+                </div>
+                <p className="text-sm sm:text-base text-gray-500 font-medium">
+                  No comments yet
+                </p>
+                <p className="text-xs sm:text-sm text-gray-400 mt-1">
+                  Be the first to comment!
+                </p>
+              </div>
             )}
           </div>
 

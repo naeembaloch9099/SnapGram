@@ -39,11 +39,17 @@ const Sidebar = () => {
     ? conversations.filter((c) => Number(c.unread) > 0).length
     : 0;
   return (
-    /* Make the aside itself sticky so it remains fixed during scroll on large screens */
-    <aside className="hidden lg:block sticky top-6">
-      <div className="px-4">
-        <div className="mb-6 text-2xl font-extrabold">SnapGram</div>
-        <nav className="space-y-3">
+    <aside className="hidden lg:flex lg:flex-col sticky top-0 h-screen w-64 xl:w-72 2xl:w-80 border-r border-gray-200/50 bg-white/80 backdrop-blur-xl">
+      <div className="flex-1 overflow-y-auto py-8 px-6">
+        {/* Logo/Brand */}
+        <div className="mb-10">
+          <h1 className="text-3xl xl:text-4xl font-black bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 bg-clip-text text-transparent">
+            SnapGram
+          </h1>
+        </div>
+
+        {/* Navigation */}
+        <nav className="space-y-2">
           {items.map((it) => {
             if (it.label === "Notifications") {
               return (
@@ -65,14 +71,16 @@ const Sidebar = () => {
                     e.preventDefault();
                     navigate("/notifications");
                   }}
-                  className={`w-full text-left flex items-center gap-3 py-2 px-3 rounded hover:bg-slate-100 text-slate-700`}
+                  className="w-full text-left flex items-center gap-4 py-3.5 px-4 rounded-2xl hover:bg-gradient-to-r hover:from-indigo-50 hover:to-pink-50 text-gray-700 hover:text-gray-900 transition-all duration-200 group relative"
                 >
-                  <span className="text-lg">{it.icon}</span>
-                  <span className="hidden lg:inline">{it.label}</span>
+                  <span className="text-2xl group-hover:scale-110 transition-transform duration-200">
+                    {it.icon}
+                  </span>
+                  <span className="text-base xl:text-lg font-medium">
+                    {it.label}
+                  </span>
                   {hasUnreadNotifications && (
-                    <span className="ml-auto inline-flex items-center justify-center px-2 py-0.5 text-xs font-semibold text-white bg-red-600 rounded-full">
-                      •
-                    </span>
+                    <span className="ml-auto w-2 h-2 bg-red-500 rounded-full animate-pulse shadow-lg shadow-red-500/50"></span>
                   )}
                 </button>
               );
@@ -119,22 +127,45 @@ const Sidebar = () => {
                   }
                 }}
                 className={({ isActive }) =>
-                  `flex items-center gap-3 py-2 px-3 rounded hover:bg-slate-100 ${
-                    isActive ? "bg-slate-100 font-semibold" : "text-slate-700"
+                  `flex items-center gap-4 py-3.5 px-4 rounded-2xl transition-all duration-200 group relative ${
+                    isActive
+                      ? "bg-gradient-to-r from-indigo-500 to-pink-500 text-white font-semibold shadow-lg"
+                      : "text-gray-700 hover:bg-gradient-to-r hover:from-indigo-50 hover:to-pink-50 hover:text-gray-900"
                   }`
                 }
               >
-                <span className="text-lg">{it.icon}</span>
-                <span className="hidden lg:inline">{it.label}</span>
-                {it.label === "Messages" && unreadConversations > 0 && (
-                  <span className="ml-auto inline-flex items-center justify-center px-2 py-0.5 text-xs font-semibold text-white bg-red-600 rounded-full">
-                    {unreadConversations > 99 ? "99+" : unreadConversations}
-                  </span>
+                {({ isActive }) => (
+                  <>
+                    <span
+                      className={`text-2xl group-hover:scale-110 transition-transform duration-200`}
+                    >
+                      {it.icon}
+                    </span>
+                    <span className="text-base xl:text-lg font-medium">
+                      {it.label}
+                    </span>
+                    {it.label === "Messages" && unreadConversations > 0 && (
+                      <span
+                        className={`ml-auto inline-flex items-center justify-center min-w-[24px] h-6 px-2 text-xs font-bold rounded-full shadow-lg ${
+                          isActive
+                            ? "bg-white text-indigo-600"
+                            : "bg-red-500 text-white"
+                        }`}
+                      >
+                        {unreadConversations > 99 ? "99+" : unreadConversations}
+                      </span>
+                    )}
+                  </>
                 )}
               </NavLink>
             );
           })}
         </nav>
+      </div>
+
+      {/* Footer */}
+      <div className="p-6 border-t border-gray-200/50">
+        <div className="text-xs text-gray-500 text-center">© 2024 SnapGram</div>
       </div>
     </aside>
   );
