@@ -124,9 +124,21 @@ const SocialLogin = ({ label = "Continue with Facebook" }) => {
       alert("🚀 Calling FB.login()...");
       console.log("🔴 FB.login() is about to be called");
 
+      // Add timeout to detect if FB.login callback is never called
+      let callbackCalled = false;
+      setTimeout(() => {
+        if (!callbackCalled) {
+          alert(
+            "⏱️ TIMEOUT: Facebook didn't respond after 10 seconds. Popup might be blocked or app is in Development mode. Check: 1) Popup blocker, 2) Facebook App is Live, 3) You're added as a tester"
+          );
+          setLoading(false);
+        }
+      }, 10000);
+
       // Now call FB.login
       FB.login(
         async (resp) => {
+          callbackCalled = true;
           alert("📩 Facebook responded! Status: " + resp?.status);
           console.log("🔴 [FB.login callback] Response:", resp);
           console.log("🔴 resp.status:", resp?.status);
