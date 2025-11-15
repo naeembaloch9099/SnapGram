@@ -13,6 +13,8 @@ function MainLayout() {
     location.pathname.startsWith("/messages/") &&
     location.pathname !== "/messages";
 
+  const hideRightSidebar = location.pathname.startsWith("/messages");
+
   return (
     <NotificationProvider>
       <div className="flex min-h-screen bg-gradient-to-br from-gray-50 via-white to-indigo-50/20">
@@ -38,22 +40,24 @@ function MainLayout() {
                 </div>
 
                 {/* Right sidebar - suggestions, trending, etc. */}
-                <div className="hidden xl:block xl:col-span-4 2xl:col-span-5">
-                  <div className="sticky top-24 space-y-4">
-                    {/* Suggestions Card */}
-                    <SuggestionsCard />
+                {!hideRightSidebar && (
+                  <div className="hidden xl:block xl:col-span-4 2xl:col-span-5">
+                    <div className="sticky top-24 space-y-4">
+                      {/* Suggestions Card */}
+                      <SuggestionsCard />
 
-                    {/* Trending Card */}
-                    <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
-                      <h3 className="text-sm font-semibold text-gray-900 mb-3">
-                        Trending
-                      </h3>
-                      <div className="text-xs text-gray-500">
-                        Coming soon...
+                      {/* Trending Card */}
+                      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+                        <h3 className="text-sm font-semibold text-gray-900 mb-3">
+                          Trending
+                        </h3>
+                        <div className="text-xs text-gray-500">
+                          Coming soon...
+                        </div>
                       </div>
                     </div>
                   </div>
-                </div>
+                )}
               </div>
             </div>
           </main>

@@ -18,6 +18,7 @@ import { PostContext } from "../context/PostContext";
 import usePosts from "../hooks/usePosts";
 import { AuthContext } from "../context/AuthContext";
 import api from "../services/api";
+import ReelPlayer from "../components/ReelPlayer";
 
 const Reels = () => {
   // Guard against missing provider: if PostContext is undefined (not wrapped),
@@ -421,8 +422,6 @@ const Reels = () => {
         {postsOnly.map((reel, idx) => (
           <div
             key={reel.id}
-            data-index={idx}
-            className="relative h-screen w-full snap-start bg-black"
             onClick={(e) => {
               e.stopPropagation();
               // delay single-tap action to allow double-tap detection
@@ -442,161 +441,28 @@ const Reels = () => {
               handleDoubleTap(idx);
             }}
           >
-            {/* Video element */}
-            {reel.video ? (
-              <video
-                ref={(el) => (videoRefs.current[idx] = el)}
-                src={reel.video}
-                className="w-full h-full object-cover"
-                loop
-                playsInline
-                muted={false}
-              />
-            ) : (
-              <div className="w-full h-full bg-black flex items-center justify-center">
-                <p className="text-white">No video available</p>
-              </div>
-            )}
-
-            {/* Pause Overlay */}
-            {!isPlaying && (
-              <div className="absolute inset-0 flex items-center justify-center z-10 pointer-events-none">
-                <div className="w-20 h-20 bg-white/80 rounded-full flex items-center justify-center">
-                  <FiPlay className="w-10 h-10 text-black ml-1" />
-                </div>
-              </div>
-            )}
-
-            {/* Double-tap Heart */}
-            {showLike && idx === currentIndex && (
-              <div className="absolute inset-0 flex items-center justify-center z-20 pointer-events-none">
-                <FiHeart className="w-24 h-24 text-white animate-ping" />
-              </div>
-            )}
-
-            {/* Gradient Overlay */}
-            <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-black/30 pointer-events-none" />
-
-            {/* Bottom Content */}
-            <div className="absolute bottom-0 left-0 right-0 p-4 text-white">
-              {/* User + Follow */}
-              <div className="flex items-center gap-3 mb-3">
-                <img
-                  src={
-                    reel.profilePic ||
-                    `data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'><circle fill='%23e5e7eb' cx='20' cy='20' r='20'/><text x='50%' y='50%' dominant-baseline='middle' text-anchor='middle' fill='%236b7280' font-size='16'>${reel.username
-                      .charAt(0)
-                      .toUpperCase()}</text></svg>`
-                  }
-                  alt={reel.username}
-                  className="w-10 h-10 rounded-full object-cover ring-2 ring-white"
-                />
-                <div className="flex-1">
-                  <p className="font-bold text-base">{reel.username}</p>
-                  <p className="text-xs opacity-70">See more</p>
-                </div>
-                {/* Only show Follow button if not already following and not own profile */}
-                {activeUser?.username !== reel.username &&
-                  !activeUser?.following?.some((f) => {
-                    const followingId =
-                      typeof f === "string" ? f : f?._id || f?.id;
-                    return followingId === reel.ownerId;
-                  }) && (
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        // Navigate to profile or implement follow logic
-                        navigate(`/profile/${reel.username}`);
-                      }}
-                      className="px-4 py-1.5 border border-white rounded-full text-sm font-medium hover:bg-white/20 transition"
-                    >
-                      Follow
-                    </button>
-                  )}
-              </div>
-
-              {/* Caption */}
-              <p className="text-sm font-medium mb-4 line-clamp-2">
-                {reel.caption}
-              </p>
-
-              {/* Action Icons (Right Side) */}
-              <div className="absolute right-3 bottom-16 flex flex-col gap-5">
-                {/* Like */}
-                <div className="flex flex-col items-center gap-1">
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      try {
-                        toggleLike(reel.id, activeUser?.username);
-                      } catch (err) {
-                        console.error(err);
-                      }
-                    }}
-                    className="p-2 rounded-full hover:scale-110 transition"
-                    aria-pressed={reel.liked}
-                  >
-                    {reel.liked ? (
-                      <AiFillHeart className="w-7 h-7 text-red-500 drop-shadow" />
-                    ) : (
-                      <FiHeart className="w-7 h-7 text-white drop-shadow" />
-                    )}
-                  </button>
-                  <span className="text-xs font-medium drop-shadow">
-                    {reel.likes}
-                  </span>
-                </div>
-
-                {/* Comment */}
-                <div className="flex flex-col items-center gap-1">
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setOpenCommentsFor(reel.id);
-                    }}
-                    className="p-2 rounded-full hover:scale-110 transition"
-                  >
-                    <FiMessageCircle className="w-7 h-7 text-white drop-shadow" />
-                  </button>
-                  <span className="text-xs font-medium drop-shadow">
-                    {reel.comments}
-                  </span>
-                </div>
-
-                {/* Send / Share -> open DM share picker */}
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    // Open share-to-DM picker with media info
-                    setShareMedia({
-                      type: "video",
-                      video: reel.video,
-                      text: reel.caption,
-                      postId: reel.id,
-                      username: reel.username,
-                    });
-                  }}
-                  className="p-2 rounded-full hover:scale-110 transition"
-                >
-                  <FiSend className="w-7 h-7 text-white drop-shadow -rotate-12" />
-                </button>
-
-                {/* Save */}
-                <button className="p-2 rounded-full hover:scale-110 transition">
-                  <FiBookmark className="w-7 h-7 text-white drop-shadow" />
-                </button>
-
-                {/* More */}
-                <button className="p-2 rounded-full hover:scale-110 transition">
-                  <FiMoreHorizontal className="w-7 h-7 text-white drop-shadow" />
-                </button>
-
-                {/* Music */}
-                <div className="mt-2 p-2 bg-white/10 rounded-full">
-                  <FiMusic className="w-5 h-5 text-white" />
-                </div>
-              </div>
-            </div>
+            <ReelPlayer
+              reel={reel}
+              idx={idx}
+              videoRef={(el) => (videoRefs.current[idx] = el)}
+              isActive={idx === currentIndex}
+              onToggleLike={() => toggleLike(reel.id, activeUser?.username)}
+              onOpenComments={(id) => setOpenCommentsFor(id)}
+              onShare={(r) =>
+                setShareMedia({
+                  type: "video",
+                  video: r.video,
+                  text: r.caption,
+                  postId: r.id,
+                  username: r.username,
+                })
+              }
+              onTogglePlay={togglePlay}
+              isPlaying={isPlaying}
+              onDoubleTap={() => handleDoubleTap(idx)}
+              activeUser={activeUser}
+              toggleLike={toggleLike}
+            />
           </div>
         ))}
       </div>

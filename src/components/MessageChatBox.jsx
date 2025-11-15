@@ -121,7 +121,88 @@ const InstagramVideoPlayer = ({ src }) => {
 
 // --- THIS COMPONENT IS UPDATED ---
 // It handles BOTH your old messages AND the new call messages
-const MessageContent = ({ message }) => {
+const AudioBubble = ({ src, isFromMe = false, filename }) => {
+  const aRef = useRef(null);
+  const [playing, setPlaying] = useState(false);
+
+  useEffect(() => {
+    const a = aRef.current;
+    if (!a) return;
+    const onEnded = () => setPlaying(false);
+    a.addEventListener("ended", onEnded);
+    return () => a.removeEventListener("ended", onEnded);
+  }, []);
+
+  const toggle = (e) => {
+    e.stopPropagation();
+    const a = aRef.current;
+    if (!a) return;
+    if (playing) {
+      a.pause();
+      setPlaying(false);
+    } else {
+      a.play().catch(() => {});
+      setPlaying(true);
+    }
+  };
+
+  // simple static bar heights to mimic waveform; could be replaced with real waveform later
+  const bars = [6, 10, 14, 18, 22, 18, 14, 10, 6, 8, 12, 16, 20, 16, 12, 8];
+
+  return (
+    <div
+      className={`inline-flex items-center gap-3 px-3 py-2 rounded-full max-w-xs ${
+        isFromMe ? "bg-[#0095F6] text-white" : "bg-[#F2F2F2] text-[#262626]"
+      }`}
+      onClick={() => {
+        /* allow clicking bubble to toggle play */
+        const a = aRef.current;
+        if (a) {
+          if (playing) a.pause();
+          else a.play().catch(() => {});
+          setPlaying(!playing);
+        }
+      }}
+    >
+      <audio ref={aRef} src={src} preload="metadata" className="sr-only" />
+      <button
+        type="button"
+        onClick={toggle}
+        className={`flex items-center justify-center w-8 h-8 rounded-full ${
+          isFromMe ? "bg-white text-[#0095F6]" : "bg-[#262626] text-white"
+        }`}
+        aria-label={playing ? "Pause" : "Play"}
+      >
+        {playing ? <FiPause size={14} /> : <FiPlay size={14} />}
+      </button>
+
+      <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1">
+          <div className="w-2 h-1 bg-transparent rounded" />
+          <div className="flex items-end gap-1">
+            {bars.map((h, i) => (
+              <div
+                key={i}
+                className={`${playing ? "animate-pulse" : ""} rounded-sm`}
+                style={{
+                  width: 3,
+                  height: `${h}px`,
+                  background: isFromMe ? "white" : "#1f2937",
+                  opacity: 0.95,
+                }}
+              />
+            ))}
+          </div>
+        </div>
+      </div>
+      {filename && (
+        <div className="ml-3 text-xs truncate max-w-[8rem]">{filename}</div>
+      )}
+    </div>
+  );
+};
+
+const MessageContent = ({ message, isFromMe }) => {
   const { text, media, mediaUrl, postRef, postSnapshot } = message;
 
   // Use postRef if available, otherwise fall back to postSnapshot (embedded at send time)
@@ -218,9 +299,11 @@ const MessageContent = ({ message }) => {
           )}
           {media === "video" && <InstagramVideoPlayer src={fullMediaUrl} />}
           {media === "audio" && (
-            <audio src={fullMediaUrl} controls className="w-full mt-2">
-              Your browser does not support the audio tag.
-            </audio>
+            <AudioBubble
+              src={fullMediaUrl}
+              isFromMe={isFromMe}
+              filename={message.fileName || message.name}
+            />
           )}
         </div>
       )}
@@ -272,6 +355,7 @@ const MessageChatBox = ({ conversationId }) => {
   const [audioPreview, setAudioPreview] = useState(null);
   const mediaRecorderRef = useRef(null);
   const audioChunksRef = useRef([]);
+  // preview audio is handled inside AudioBubble; only keep preview URL state
   const [creatingConversation, setCreatingConversation] = useState(false);
   const [tempConversationId, setTempConversationId] = useState(null);
 
@@ -425,6 +509,19 @@ const MessageChatBox = ({ conversationId }) => {
     setAudioPreview(null);
     setMessageText("");
   };
+
+  useEffect(() => {
+    // cleanup preview audio URL when changed/unmounted
+    return () => {
+      if (audioPreview && audioPreview.startsWith("blob:")) {
+        try {
+          URL.revokeObjectURL(audioPreview);
+        } catch (e) {
+          console.warn(e);
+        }
+      }
+    };
+  }, [audioPreview]);
 
   const sendMediaMessage = async () => {
     if (!selectedMedia) return;
@@ -703,7 +800,7 @@ const MessageChatBox = ({ conversationId }) => {
                     key={m._id || m.id}
                     className="text-center text-xs text-[#737373] my-4"
                   >
-                    <MessageContent message={m} />
+                    <MessageContent message={m} isFromMe={isFromMe} />
                   </div>
                 );
               }
@@ -722,7 +819,7 @@ const MessageChatBox = ({ conversationId }) => {
                         : "bg-[#EFEFEF] text-[#262626] border border-[#DBDBDB]"
                     }`}
                   >
-                    <MessageContent message={m} />
+                    <MessageContent message={m} isFromMe={isFromMe} />
                     <div
                       className={`text-xs mt-1 ${
                         isFromMe ? "text-blue-100" : "text-[#737373]"
@@ -761,26 +858,43 @@ const MessageChatBox = ({ conversationId }) => {
               />
             )}
             {selectedMedia.type === "audio" && (
-              <audio
-                src={selectedMedia.preview}
-                controls
-                className="w-full h-full"
-              />
+              <div className="w-full h-full flex items-center justify-center">
+                <AudioBubble
+                  src={selectedMedia.preview}
+                  isFromMe={true}
+                  filename={selectedMedia.file.name}
+                />
+              </div>
             )}
           </div>
 
           <div className="flex-1 min-w-0">
-            <p className="text-xs text-slate-600">
-              {selectedMedia.type === "image"
-                ? "📷 Image"
-                : selectedMedia.type === "video"
-                ? "🎥 Video"
-                : "🎙️ Audio"}
-            </p>
-            <p className="text-xs font-medium truncate">
-              {selectedMedia.file.name}
-            </p>
-            <p className="text-xs text-slate-600">Ready to send.</p>
+            {selectedMedia.type === "audio" ? (
+              <>
+                <div className="flex items-center gap-3">
+                  <div className="text-sm font-medium truncate">
+                    {selectedMedia.file.name}
+                  </div>
+                  <div className="text-xs text-slate-600 ml-auto">
+                    Ready to send
+                  </div>
+                </div>
+              </>
+            ) : (
+              <>
+                <p className="text-xs text-slate-600">
+                  {selectedMedia.type === "image"
+                    ? "📷 Image"
+                    : selectedMedia.type === "video"
+                    ? "🎥 Video"
+                    : "🎙️ Audio"}
+                </p>
+                <p className="text-xs font-medium truncate">
+                  {selectedMedia.file.name}
+                </p>
+                <p className="text-xs text-slate-600">Ready to send.</p>
+              </>
+            )}
           </div>
 
           <button

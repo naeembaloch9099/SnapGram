@@ -8,7 +8,10 @@ import React, {
   useRef,
 } from "react";
 import { useNavigate } from "react-router-dom";
-import { fetchConversations, sendMessage } from "../services/messageService";
+import {
+  fetchConversations,
+  sendMessage as apiSendMessage,
+} from "../services/messageService";
 import {
   initSocket,
   on as socketOn,
@@ -84,9 +87,9 @@ export const MessageProvider = ({ children }) => {
           callerId: call.caller._id,
         });
         if (call.status === "ringing" || call.status === "unavailable") {
-          sendMessage(call.conversationId, { text: `[call-missed]` });
+          apiSendMessage(call.conversationId, { text: `[call-missed]` });
         } else if (call.status === "declined") {
-          sendMessage(call.conversationId, { text: `[call-declined]` });
+          apiSendMessage(call.conversationId, { text: `[call-declined]` });
         }
       }
       setCall(null);
@@ -106,7 +109,7 @@ export const MessageProvider = ({ children }) => {
       callerId: incomingCall.caller._id,
     };
     socketEmit("call:declined", declineData);
-    sendMessage(incomingCall.conversationId, { text: `[call-missed]` });
+    apiSendMessage(incomingCall.conversationId, { text: `[call-missed]` });
     setIncomingCall(null);
   }, [incomingCall]);
 
@@ -196,7 +199,9 @@ export const MessageProvider = ({ children }) => {
             signal: offer,
           };
           socketEmit("call:start", callOffer);
-          sendMessage(conversationId, { text: `[call-started:${callType}]` });
+          apiSendMessage(conversationId, {
+            text: `[call-started:${callType}]`,
+          });
           navigate(`/call/${callId}`);
         });
         peer.on("stream", (stream) => {
@@ -212,77 +217,92 @@ export const MessageProvider = ({ children }) => {
     [activeUser, navigate, endCall]
   ); // --- Context Mutators (used by components) ---
 
-  const addMessageLocally = (conversationId, message) => {
-    setConversations((prev) => {
-      const found = prev.find(
-        (c) => String(c._id || c.id) === String(conversationId)
-      );
-      if (!found)
-        return [
-          {
-            _id: conversationId,
-            participants: [],
-            messages: [message],
-            unread: 1,
-          },
-          ...prev,
-        ];
-      return prev.map((c) =>
-        String(c._id || c.id) === String(conversationId)
-          ? (() => {
-              const before = c.messages || [];
-              const incomingKey = String(message._id || message.id);
-              if (before.some((m) => String(m._id || m.id) === incomingKey)) {
-                return {
-                  ...c,
-                  messages: before,
-                  unread:
-                    String(message.sender?._id || message.sender) ===
-                    String(activeUser?._id || activeUser?.id)
-                      ? c.unread || 0
-                      : (c.unread || 0) + 1,
-                };
-              }
-              const combined = [...before, message];
-              const seen = new Set();
-              const unique = [];
-              for (const mm of combined) {
-                const key = String(mm._id || mm.id);
-                if (!seen.has(key)) {
-                  seen.add(key);
-                  unique.push(mm);
-                }
-              }
-              return {
-                ...c,
-                messages: unique,
-                unread:
-                  String(message.sender?._id || message.sender) ===
-                  String(activeUser?._id || activeUser?.id)
-                    ? c.unread || 0
-                    : (c.unread || 0) + 1,
-              };
-            })()
-          : c
-      );
-    });
-  }; // 🟢 FIX for LIVE SEEN: Function to mark messages as seen locally
+  // Add a message locally (optimistic update). Ensures stable temp ids
+  // and deduplicates messages by id.
+  const addMessageLocally = useCallback(
+    (conversationId, message) => {
+      setConversations((prev) => {
+        const msg = { ...message };
+        if (!msg._id && !msg.id) {
+          msg._id = `temp_${Date.now()}_${Math.floor(Math.random() * 10000)}`;
+        }
 
+        const found = prev.find(
+          (c) => String(c._id || c.id) === String(conversationId)
+        );
+        if (!found) {
+          return [
+            {
+              _id: conversationId,
+              participants: [],
+              messages: [msg],
+              unread: 1,
+            },
+            ...prev,
+          ];
+        }
+
+        return prev.map((c) => {
+          if (String(c._id || c.id) !== String(conversationId)) return c;
+
+          const before = c.messages || [];
+
+          const incomingKey = String(msg._id || msg.id);
+          if (before.some((m) => String(m._id || m.id) === incomingKey)) {
+            // message already exists
+            return {
+              ...c,
+              messages: before,
+              unread:
+                String(msg.sender?._id || msg.sender) ===
+                String(activeUser?._id || activeUser?.id)
+                  ? c.unread || 0
+                  : (c.unread || 0) + 1,
+            };
+          }
+
+          const combined = [...before, msg];
+          const seen = new Set();
+          const unique = [];
+          for (let i = 0; i < combined.length; i++) {
+            const mm = combined[i];
+            const key = String(mm._id || mm.id || `idx_${i}`);
+            if (!seen.has(key)) {
+              seen.add(key);
+              unique.push(mm);
+            }
+          }
+
+          return {
+            ...c,
+            messages: unique,
+            unread:
+              String(msg.sender?._id || msg.sender) ===
+              String(activeUser?._id || activeUser?.id)
+                ? c.unread || 0
+                : (c.unread || 0) + 1,
+          };
+        });
+      });
+    },
+    [activeUser]
+  );
+
+  // 🟢 FIX for LIVE SEEN: Function to mark messages as seen locally
   const markMessagesAsSeenLocally = useCallback(() => {
     setConversations((prev) =>
       prev.map((c) => {
         const isCurrentChatOpen = window.location.pathname.includes(
           `/messages/${c._id || c.id}`
-        ); // Optimization: Only apply seen status if the user is in the chat
+        );
         if (isCurrentChatOpen) {
           return {
             ...c,
             unread: 0,
             messages: (c.messages || []).map((msg) => {
-              // Messages that should be marked seen are those SENT BY ME (the active user)
               const isSentByMe =
                 String(msg.sender?._id || msg.sender) ===
-                String(activeUser?._id || activeUser?.id); // If the message was sent by the active user (me) AND is not already seen, mark it true
+                String(activeUser?._id || activeUser?.id);
               if (isSentByMe && !msg.seen) {
                 return { ...msg, seen: true };
               }
@@ -295,11 +315,8 @@ export const MessageProvider = ({ children }) => {
     );
   }, [activeUser]);
 
-  const markAllRead = () => {
-    setConversations((prev) => prev.map((c) => ({ ...c, unread: 0 })));
-  };
-
-  const markConversationRead = (conversationId) => {
+  // Mark a single conversation as read
+  const markConversationRead = useCallback((conversationId) => {
     setConversations((prev) =>
       prev.map((c) =>
         String(c._id || c.id) === String(conversationId)
@@ -307,14 +324,83 @@ export const MessageProvider = ({ children }) => {
           : c
       )
     );
-  }; // Removed the redundant markMessagesAsSeen function // --- UseEffects ---
-  useEffect(() => {
-    if (!activeUser) return;
-    loadConversations();
-  }, [loadConversations, activeUser]);
+  }, []);
+
+  // Mark all conversations as read
+  const markAllRead = useCallback(() => {
+    setConversations((prev) => prev.map((c) => ({ ...c, unread: 0 })));
+  }, []);
+
+  // Send a message to the server with optimistic local update
+  const sendMessageToServer = useCallback(
+    async (conversationId, payload) => {
+      if (!activeUser) throw new Error("Not authenticated");
+
+      const tempMsg = {
+        _id: `temp_${Date.now()}_${Math.floor(Math.random() * 10000)}`,
+        sender: activeUser,
+        text: payload && payload.text ? payload.text : payload.fileName || "",
+        createdAt: new Date().toISOString(),
+        // attach a flag so we can identify optimistic messages if needed
+        _optimistic: true,
+      };
+
+      // Optimistic add
+      addMessageLocally(conversationId, tempMsg);
+
+      try {
+        const res = await apiSendMessage(conversationId, payload);
+        const serverMsg = res?.data;
+        if (serverMsg) {
+          // Replace temp message with server message
+          setConversations((prev) =>
+            prev.map((c) => {
+              if (String(c._id || c.id) !== String(conversationId)) return c;
+              const msgs = (c.messages || []).map((m) =>
+                String(m._id) === String(tempMsg._id) ? serverMsg : m
+              );
+              if (!msgs.some((m) => String(m._id) === String(serverMsg._id))) {
+                msgs.push(serverMsg);
+              }
+              const seen = new Set();
+              const unique = [];
+              for (const mm of msgs) {
+                const key = String(mm._id || mm.id);
+                if (!seen.has(key)) {
+                  seen.add(key);
+                  unique.push(mm);
+                }
+              }
+              return { ...c, messages: unique };
+            })
+          );
+        }
+        return res;
+      } catch (err) {
+        // mark optimistic message as failed
+        setConversations((prev) =>
+          prev.map((c) => {
+            if (String(c._id || c.id) !== String(conversationId)) return c;
+            return {
+              ...c,
+              messages: (c.messages || []).map((m) =>
+                String(m._id) === String(tempMsg._id)
+                  ? { ...m, sendFailed: true }
+                  : m
+              ),
+            };
+          })
+        );
+        throw err;
+      }
+    },
+    [addMessageLocally, activeUser]
+  );
 
   useEffect(() => {
     if (!activeUser) return;
+    // Load conversations from server (link frontend state with DB)
+    loadConversations();
     const userId = activeUser.id || activeUser._id;
     (async () => {
       const s = await initSocket(
@@ -339,7 +425,7 @@ export const MessageProvider = ({ children }) => {
         setIncomingCall((currentCall) => {
           if (currentCall && currentCall.callId === callOffer.callId) {
             console.log("📞 Call timed out (recipient)");
-            sendMessage(callOffer.conversationId, { text: `[call-missed]` });
+            apiSendMessage(callOffer.conversationId, { text: `[call-missed]` });
             return null;
           }
           return currentCall;
@@ -487,6 +573,7 @@ export const MessageProvider = ({ children }) => {
     declineCall,
     startCall,
     markMessagesAsSeenLocally,
+    loadConversations,
   ]);
 
   return (
@@ -497,6 +584,7 @@ export const MessageProvider = ({ children }) => {
         loading,
         loadConversations: loadConversations,
         addMessageLocally,
+        sendMessageToServer,
         markAllRead,
         markConversationRead, // Your call values
         incomingCall,

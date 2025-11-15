@@ -8,6 +8,7 @@ import api from "../services/api";
 import { followUser } from "../services/userService";
 import Loader from "./Loader";
 import SpinnerInline from "./SpinnerInline";
+import SkeletonNotification from "./SkeletonNotification";
 
 const STORAGE_KEY = "snapgram.notifications.state";
 
@@ -519,15 +520,42 @@ const NotificationsList = ({
                         </div>
                       </div>
                     </div>
-                    {metaImage && (
-                      <img
-                        src={metaImage}
-                        alt="meta"
-                        className={`${
-                          isMobile ? "w-14 h-14" : "w-12 h-12"
-                        } object-cover rounded flex-shrink-0`}
-                      />
-                    )}
+                    {(() => {
+                      const images = Array.isArray(n.meta?.images)
+                        ? n.meta.images
+                        : Array.isArray(metaImage)
+                        ? metaImage
+                        : metaImage
+                        ? [metaImage]
+                        : [];
+
+                      if (images.length === 0) return null;
+                      if (images.length === 1) {
+                        return (
+                          <img
+                            src={images[0]}
+                            alt="meta"
+                            className={`${
+                              isMobile ? "w-14 h-14" : "w-12 h-12"
+                            } object-cover rounded flex-shrink-0`}
+                          />
+                        );
+                      }
+
+                      // Grid for multiple media items (up to 3 shown)
+                      return (
+                        <div className="grid grid-cols-3 gap-1 w-20">
+                          {images.slice(0, 3).map((src, i) => (
+                            <img
+                              key={i}
+                              src={src}
+                              alt={`meta-${i}`}
+                              className="w-6 h-6 object-cover rounded"
+                            />
+                          ))}
+                        </div>
+                      );
+                    })()}
                   </Link>
                 );
               })}
@@ -863,13 +891,39 @@ const NotificationsList = ({
                 <div className="text-xs text-slate-400 mt-1">{time}</div>
               </div>
             </div>
-            {metaImage && (
-              <img
-                src={metaImage}
-                alt="meta"
-                className="w-12 h-12 object-cover rounded flex-shrink-0"
-              />
-            )}
+            {(() => {
+              const images = Array.isArray(n.meta?.images)
+                ? n.meta.images
+                : Array.isArray(metaImage)
+                ? metaImage
+                : metaImage
+                ? [metaImage]
+                : [];
+
+              if (images.length === 0) return null;
+              if (images.length === 1) {
+                return (
+                  <img
+                    src={images[0]}
+                    alt="meta"
+                    className="w-12 h-12 object-cover rounded flex-shrink-0"
+                  />
+                );
+              }
+
+              return (
+                <div className="grid grid-cols-3 gap-1 w-20">
+                  {images.slice(0, 3).map((src, i) => (
+                    <img
+                      key={i}
+                      src={src}
+                      alt={`meta-${i}`}
+                      className="w-6 h-6 object-cover rounded"
+                    />
+                  ))}
+                </div>
+              );
+            })()}
           </Link>
         );
       })}
@@ -954,8 +1008,10 @@ const NotificationsDrawer = () => {
               </button>
             </div>
             {loading ? (
-              <div className="py-6">
-                <Loader fullScreen={false} size="md" />
+              <div className="space-y-3 py-2">
+                {Array.from({ length: 6 }).map((_, i) => (
+                  <SkeletonNotification key={i} />
+                ))}
               </div>
             ) : (
               <NotificationsList
