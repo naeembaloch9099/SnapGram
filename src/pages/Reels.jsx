@@ -13,7 +13,7 @@ import {
   FiEdit2,
 } from "react-icons/fi";
 import { AiFillHeart } from "react-icons/ai";
-import { useLocation, useNavigate } from "react-router-dom";
+import { useLocation } from "react-router-dom";
 import { PostContext } from "../context/PostContext";
 import usePosts from "../hooks/usePosts";
 import { AuthContext } from "../context/AuthContext";
@@ -33,7 +33,6 @@ const Reels = () => {
   // lightweight helper hook to access PostContext helpers (addShare)
   const { addShare } = usePosts() || {};
   const { activeUser } = useContext(AuthContext);
-  const navigate = useNavigate();
 
   // Show only video posts (reels) on this page
   // Defensive: ensure `posts` is always an array even if PostContext is missing
@@ -77,7 +76,7 @@ const Reels = () => {
 
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isPlaying, setIsPlaying] = useState(true);
-  const [showLike, setShowLike] = useState(false);
+  const [_showLike, setShowLike] = useState(false);
   const videoRefs = useRef([]);
   const observerRef = useRef(null);
   const [commentsMap, setCommentsMap] = useState({});
