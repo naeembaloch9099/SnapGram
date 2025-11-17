@@ -1,13 +1,23 @@
 // services/api.js (Fixed Version)
 import axios from "axios";
 
-// ✅ [FIXED] Change the baseURL to the relative path '/api'
-// This will now be handled by the Vite proxy in development.
-const baseURL =
-  (typeof import.meta !== "undefined" &&
-    import.meta.env &&
-    import.meta.env.VITE_API_URL) || // This is still good for production
-  "/api"; // Default to the proxy path
+// Prefer the dev proxy (`/api`) when running locally so cookies and
+// same-origin proxying works. In production use `VITE_API_URL` if provided.
+const baseURL = (() => {
+  try {
+    if (typeof import.meta !== "undefined" && import.meta.env) {
+      // In dev always use the Vite proxy path so the browser talks to localhost
+      if (import.meta.env.DEV) return "/api";
+      if (import.meta.env.VITE_API_URL) return import.meta.env.VITE_API_URL;
+    }
+  } catch (e) {
+    console.log("api: error determining baseURL", e?.message || e);
+    // ignore and fall back to proxy
+  }
+  return "/api";
+})();
+
+console.debug("api: baseURL resolved to", baseURL);
 
 const api = axios.create({
   baseURL,
