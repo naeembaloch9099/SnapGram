@@ -242,6 +242,25 @@ export const PostProvider = ({ children }) => {
     }
   };
 
+  // Insert a post object returned from the server into the local cache
+  // without issuing another POST request. Use this when you've already
+  // created the post server-side (e.g. when uploading to Cloudinary first).
+  const insertPost = (created) => {
+    try {
+      const id = created.id || created._id || String(Math.random());
+      const owner =
+        typeof created.owner === "object" && created.owner !== null
+          ? created.owner.username || created.owner._id || String(created.owner)
+          : created.owner || "unknown";
+      const normalized = { ...created, id, owner };
+      setPosts((p) => [normalized, ...p]);
+      return normalized;
+    } catch (e) {
+      console.warn("PostProvider: failed to insert post", e);
+      return null;
+    }
+  };
+
   const addComment = async (postId, text, replyTo = null) => {
     // Accept either a plain text string or a prebuilt comment object for
     // backward compatibility with different callers.
@@ -466,9 +485,10 @@ export const PostProvider = ({ children }) => {
   };
 
   const toggleLike = async (postId, username) => {
+    // declare here so catch/revert logic can access the original state
+    let wasLiked = false;
     try {
       // ✅ Optimistic update: toggle like immediately in UI
-      let wasLiked = false;
       setPosts((prev) =>
         prev.map((p) => {
           if (String(p._id || p.id) !== String(postId)) return p;
@@ -519,6 +539,47 @@ export const PostProvider = ({ children }) => {
       return { likes, liked };
     } catch (e) {
       console.warn("PostProvider: failed to toggle like", e);
+
+      const status = e?.response?.status;
+      // If the post was deleted server-side (404), remove it locally to avoid orphaned UI
+      if (status === 404) {
+        console.info(
+          `[PostContext.toggleLike] Post ${postId} not found on server — removing from local feed`
+        );
+        setPosts((prev) =>
+          prev.filter((p) => String(p._id || p.id) !== String(postId))
+        );
+        return { removed: true };
+      }
+
+      // For other errors, revert the optimistic change using the recorded `wasLiked` value
+      try {
+        setPosts((prev) =>
+          prev.map((p) => {
+            if (String(p._id || p.id) !== String(postId)) return p;
+            const likedBy = Array.isArray(p.likedBy) ? [...p.likedBy] : [];
+            if (wasLiked) {
+              // originally liked — ensure username present
+              if (username && !likedBy.includes(username))
+                likedBy.push(username);
+              return { ...p, likedBy, likes: (p.likes || 0) + 1 };
+            } else {
+              // originally not liked — ensure username absent
+              if (username) {
+                const idx = likedBy.indexOf(username);
+                if (idx >= 0) likedBy.splice(idx, 1);
+              }
+              return { ...p, likedBy, likes: Math.max(0, (p.likes || 1) - 1) };
+            }
+          })
+        );
+      } catch (revertErr) {
+        console.warn(
+          "PostProvider: failed to revert optimistic like",
+          revertErr
+        );
+      }
+
       throw e;
     }
   };
@@ -595,6 +656,7 @@ export const PostProvider = ({ children }) => {
         loading,
         loadFeed,
         addPost,
+        insertPost,
         addComment,
         toggleCommentLike,
         toggleLike,

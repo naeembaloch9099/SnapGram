@@ -2,6 +2,7 @@ import React, { useState, useContext, useEffect } from "react";
 import { AuthContext } from "../../context/AuthContext";
 import { useNavigate, Link } from "react-router-dom";
 import api from "../../services/api";
+import { uploadToCloudinary } from "../../services/cloudinaryClient";
 import PasswordInput from "../../components/PasswordInput";
 import SocialLogin from "../../components/SocialLogin";
 
@@ -179,7 +180,7 @@ const Signup = () => {
 
   // --- FIX: Logic corrected ---
   // This function now validates fields *before* trying to register
-  const handleSendOtp = () => {
+  const handleSendOtp = async () => {
     setError("");
     // strict policy: require an email for signup
     const isEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contact);
@@ -204,28 +205,25 @@ const Signup = () => {
 
     console.debug("Signup: requesting server register (send OTP) for", contact);
 
-    const payload = {
-      username,
-      password,
-      email: contact,
-      name: fullName || username,
-      profilePic: preview || undefined,
-      bio: "",
-    };
-    api
-      .post("/auth/register", payload)
-      .then((res) => {
+    const doRegister = async (profilePicValue) => {
+      const payload = {
+        username,
+        password,
+        email: contact,
+        name: fullName || username,
+        profilePic: profilePicValue || undefined,
+        bio: "",
+      };
+      try {
+        const res = await api.post("/auth/register", payload);
         const data = res && res.data ? res.data : res;
         console.debug("/auth/register response:", data);
-
         setOtpSent(true);
         addToast(
           "Verification code sent to your email (check spam).",
           "success"
         );
-        // NO debug OTP - strictly email only
-      })
-      .catch((err) => {
+      } catch (err) {
         console.error(
           "/auth/register error:",
           err.response ? err.response.data : err
@@ -237,7 +235,41 @@ const Signup = () => {
         setError(msg);
         addToast(msg, "error");
         setOtpSent(false);
-      });
+      }
+    };
+
+    // If preview exists and we have Cloudinary client config, upload it first
+    const cloudName = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME;
+    const uploadPreset = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET;
+    if (preview && cloudName && uploadPreset) {
+      try {
+        // preview may be a data URL; convert to blob
+        let blob;
+        if (preview.startsWith("data:")) {
+          const res = await fetch(preview);
+          blob = await res.blob();
+        } else {
+          // fallback: try fetching preview URL
+          const res = await fetch(preview);
+          blob = await res.blob();
+        }
+        const file = new File([blob], `profile_${Date.now()}.png`, {
+          type: blob.type || "image/png",
+        });
+        const uploadResult = await uploadToCloudinary(file);
+        const url = uploadResult.secure_url || uploadResult.url;
+        await doRegister(url);
+      } catch (err) {
+        console.error(
+          "Profile client upload failed, registering without client upload:",
+          err
+        );
+        // fallback: register with preview value (data URL)
+        await doRegister(preview);
+      }
+    } else {
+      await doRegister(preview);
+    }
   };
 
   // --- FIX: Major logic error fixed ---

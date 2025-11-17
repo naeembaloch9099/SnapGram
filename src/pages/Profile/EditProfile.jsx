@@ -2,6 +2,7 @@ import React, { useContext, useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { AuthContext } from "../../context/AuthContext";
 import { updateProfile } from "../../services/userService";
+import { uploadToCloudinary } from "../../services/cloudinaryClient";
 import { FiCamera, FiCheck, FiX, FiLock, FiGlobe } from "react-icons/fi";
 
 const EditProfile = () => {
@@ -66,12 +67,37 @@ const EditProfile = () => {
 
     setSaving(true);
 
+    let profilePicToSend = form.profilePic || originalPic;
+    const cloudName = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME;
+    const uploadPreset = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET;
+    if (
+      profilePicToSend &&
+      cloudName &&
+      uploadPreset &&
+      profilePicToSend.startsWith("data:")
+    ) {
+      try {
+        const res = await fetch(profilePicToSend);
+        const blob = await res.blob();
+        const file = new File([blob], `profile_${Date.now()}.png`, {
+          type: blob.type || "image/png",
+        });
+        const uploadResult = await uploadToCloudinary(file);
+        profilePicToSend = uploadResult.secure_url || uploadResult.url;
+      } catch (err) {
+        console.error(
+          "Client profile upload failed, continuing with existing data URL",
+          err
+        );
+      }
+    }
+
     const payload = {
       name: form.name.trim(),
       username: form.username.trim(),
       bio: form.bio.trim(),
       isPrivate: form.isPrivate,
-      profilePic: form.profilePic || originalPic,
+      profilePic: profilePicToSend,
     };
 
     try {

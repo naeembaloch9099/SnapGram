@@ -22,6 +22,7 @@ import ChatSkeleton from "./ChatSkeleton";
 import { AuthContext } from "../context/AuthContext";
 // --- YOUR PREVIOUS CODE (FOR TEXT/IMAGE/VOICE) ---
 import { sendMessage } from "../services/messageService";
+import { uploadToCloudinary } from "../services/cloudinaryClient";
 import { joinRoom, leaveRoom, on, emit } from "../services/socket"; // 'emit' is still used for 'markSeen'
 import api from "../services/api";
 
@@ -545,12 +546,41 @@ const MessageChatBox = ({ conversationId }) => {
       if (addMessageLocally) {
         addMessageLocally(id, optimisticMessage);
       }
-      await sendMessage(id, {
-        text: messageText || `[${type.toUpperCase()}]`,
-        media: type,
-        fileName: file.name,
-        file,
-      });
+      // If frontend Cloudinary config is available, upload from client first
+      const cloudName = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME;
+      const uploadPreset = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET;
+      if (cloudName && uploadPreset) {
+        try {
+          const uploadResult = await uploadToCloudinary(file);
+          const url = uploadResult.secure_url || uploadResult.url;
+          await sendMessage(id, {
+            text: messageText || `[${type.toUpperCase()}]`,
+            media: type,
+            mediaUrl: url,
+            fileName: file.name,
+          });
+        } catch (err) {
+          console.error(
+            "Client Cloudinary upload failed for message, falling back",
+            err
+          );
+          // Fallback to server multipart upload
+          await sendMessage(id, {
+            text: messageText || `[${type.toUpperCase()}]`,
+            media: type,
+            fileName: file.name,
+            file,
+          });
+        }
+      } else {
+        // No client config; use server upload
+        await sendMessage(id, {
+          text: messageText || `[${type.toUpperCase()}]`,
+          media: type,
+          fileName: file.name,
+          file,
+        });
+      }
       if (preview.startsWith("blob:")) {
         URL.revokeObjectURL(preview);
       }

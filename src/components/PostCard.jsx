@@ -300,6 +300,21 @@ const PostCard = ({ post, onAddComment, showComments = true }) => {
   const totalCommentsCount = (post?.comments || localComments || []).length;
   // ---------------------------------------------
 
+  // Normalize media URLs: if stored as a server-relative path ("/uploads/.."),
+  // prefix with the API URL so the browser requests the asset from the backend.
+  const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:4000";
+
+  const resolveMedia = (raw) => {
+    if (!raw) return null;
+    if (typeof raw !== "string") return null;
+    if (raw.startsWith("/")) return `${apiUrl}${raw}`;
+    return raw;
+  };
+
+  const mediaSrc = post?.video
+    ? resolveMedia(post.video)
+    : resolveMedia(post.image);
+
   return (
     <article className="bg-white/90 backdrop-blur-xl rounded-3xl shadow-lg hover:shadow-2xl overflow-hidden border border-gray-100/50 transition-all duration-300">
       <div className="p-4 sm:p-6">
@@ -370,7 +385,7 @@ const PostCard = ({ post, onAddComment, showComments = true }) => {
           <>
             <video
               ref={previewVideoRef}
-              src={post.video}
+              src={mediaSrc}
               className="w-full h-full object-cover cursor-pointer"
               playsInline
               muted={previewMuted}
@@ -395,7 +410,7 @@ const PostCard = ({ post, onAddComment, showComments = true }) => {
           </>
         ) : post?.image ? (
           <img
-            src={post.image}
+            src={mediaSrc}
             alt={post.caption || "post"}
             className="w-full h-full object-cover"
           />

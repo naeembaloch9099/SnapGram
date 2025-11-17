@@ -61,23 +61,34 @@ queryClient.prefetchQuery({
     ),
 });
 
-// Optional: disable console output in the frontend when VITE_DISABLE_CONSOLE is set to 'true'
+// Replace console methods to only print Cloudinary-related messages
+// This suppresses noisy logs in the frontend and leaves only messages
+// that mention 'cloud' or 'cloudinary' (case-insensitive).
 try {
-  if (import.meta.env.VITE_DISABLE_CONSOLE === "true") {
-    ["log", "info", "warn", "error", "debug"].forEach((m) => {
-      // preserve original in case needed: window.__origConsole = window.__origConsole || {};
+  ["log", "info", "warn", "error", "debug"].forEach((m) => {
+    try {
+      window.__origConsole = window.__origConsole || {};
+      window.__origConsole[m] = console[m];
+    } catch (e) {
+      console.log("console preservation error", e);
+      // ignore preservation errors
+    }
+    console[m] = (...args) => {
       try {
-        window.__origConsole = window.__origConsole || {};
-        window.__origConsole[m] = console[m];
+        const text = args
+          .map((a) => (typeof a === "string" ? a : JSON.stringify(a)))
+          .join(" ");
+        if (/cloudinary|cloud/i.test(text)) {
+          window.__origConsole[m](...args);
+        }
       } catch (e) {
-        console.log("Error preserving original console methods", e);
-        // ignore
+        console.log("console override error", e);
+        // if serialization fails, don't print
       }
-      console[m] = () => {};
-    });
-  }
+    };
+  });
 } catch (e) {
-  console.log("Error reading VITE_DISABLE_CONSOLE", e);
+  console.log("console override setup error", e);
   // ignore environment read errors during tests
 }
 

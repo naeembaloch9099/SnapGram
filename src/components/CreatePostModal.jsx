@@ -8,12 +8,15 @@ import React, {
 import { useNavigate } from "react-router-dom";
 import { AuthContext } from "../context/AuthContext";
 import { PostContext } from "../context/PostContext";
+import { createPost } from "../services/postService";
+import { uploadToCloudinary } from "../services/cloudinaryClient";
 import { MdClose, MdFlipCameraAndroid } from "react-icons/md";
 import { FiCamera, FiImage, FiVideo } from "react-icons/fi";
 
 const CreatePostModal = () => {
   const { activeUser, login } = useContext(AuthContext);
   const { addPost } = useContext(PostContext);
+  const { insertPost } = useContext(PostContext);
   const navigate = useNavigate();
   const [step, setStep] = useState("select"); // 'select' | 'edit'
   const [selectedMedias, setSelectedMedias] = useState([]);
@@ -65,7 +68,8 @@ const CreatePostModal = () => {
       validFiles.push({
         id: `file-${Date.now()}-${i}`,
         url: URL.createObjectURL(file),
-        type: file.type.startsWith("video/") ? "video" : "image",
+        type: file.type && file.type.startsWith("video/") ? "video" : "image",
+        file, // keep original File for upload
       });
     });
 
@@ -89,7 +93,8 @@ const CreatePostModal = () => {
     if (isMobile && recentPhotos.length === 0) {
       const thumbs = files.slice(0, 30).map((f) => ({
         url: URL.createObjectURL(f),
-        type: f.type.startsWith("video/") ? "video" : "image",
+        type: f.type && f.type.startsWith("video/") ? "video" : "image",
+        file: f,
       }));
       setRecentPhotos(thumbs);
     }
@@ -160,7 +165,11 @@ const CreatePostModal = () => {
       (blob) => {
         if (!blob) return;
         const url = URL.createObjectURL(blob);
-        const newMedia = { id: `cap-${Date.now()}`, url, type: "image" };
+        // Create a File from the blob so we can upload it later
+        const file = new File([blob], `capture_${Date.now()}.jpg`, {
+          type: "image/jpeg",
+        });
+        const newMedia = { id: `cap-${Date.now()}`, url, type: "image", file };
         setSelectedMedias([newMedia]);
         setCurrentIndex(0);
         setStep("edit");
@@ -215,54 +224,120 @@ const CreatePostModal = () => {
     if (selectedMedias.length === 0) return;
     setPosting(true);
     try {
-      // Helper: convert blob/object URLs to persistent data URLs (so saved posts survive reload)
-      const urlToDataUrl = async (url) => {
-        if (!url) return url;
-        if (url.startsWith("data:")) return url;
-        try {
-          const resp = await fetch(url);
-          const blob = await resp.blob();
-          return await new Promise((res, rej) => {
-            const reader = new FileReader();
-            reader.onloadend = () => res(reader.result);
-            reader.onerror = rej;
-            reader.readAsDataURL(blob);
+      // Upload the first selected media if we have a File available
+      const first = selectedMedias[0];
+      if (first && first.file instanceof File) {
+        // If frontend Cloudinary config is available, upload directly from client
+        const cloudName = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME;
+        const uploadPreset = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET;
+        if (cloudName && uploadPreset) {
+          try {
+            const uploadResult = await uploadToCloudinary(first.file);
+            const imageUrl = uploadResult.secure_url || uploadResult.url;
+            const payload = {
+              caption: caption || "",
+              type: first.type === "video" ? "video" : "image",
+            };
+            if (first.type === "video") payload.video = imageUrl;
+            else payload.image = imageUrl;
+            const resp = await createPost(payload); // send JSON with image URL
+            const created = resp.data || resp;
+            // update local state and user count WITHOUT re-posting
+            insertPost(created);
+            login({ ...activeUser, posts: (activeUser?.posts || 0) + 1 });
+            // cleanup preview URLs
+            selectedMedias.forEach((m) => {
+              try {
+                if (m.url && m.url.startsWith("blob:"))
+                  URL.revokeObjectURL(m.url);
+              } catch (e) {
+                void e;
+              }
+            });
+            navigate(`/profile/${encodeURIComponent(activeUser?.username)}`);
+          } catch (err) {
+            console.error("Client Cloudinary upload failed", err);
+            alert("Upload failed. Falling back to server upload.");
+            // fallback to server upload below
+          }
+        } else {
+          // No client config; use server upload
+          const fd = new FormData();
+          fd.append("caption", caption || "");
+          fd.append("type", first.type === "video" ? "video" : "image");
+          fd.append("file", first.file);
+          const resp = await createPost(fd);
+          const created = resp.data || resp;
+          // update local state and user count WITHOUT re-posting
+          insertPost(created);
+          login({ ...activeUser, posts: (activeUser?.posts || 0) + 1 });
+          // cleanup preview URLs
+          selectedMedias.forEach((m) => {
+            try {
+              if (m.url && m.url.startsWith("blob:"))
+                URL.revokeObjectURL(m.url);
+            } catch (e) {
+              void e;
+            }
           });
-        } catch {
-          return url; // fallback
+          navigate(`/profile/${encodeURIComponent(activeUser?.username)}`);
         }
-      };
-      const newPosts = [];
-      for (let i = 0; i < selectedMedias.length; i++) {
-        const media = selectedMedias[i];
-        const persistentUrl = await urlToDataUrl(media.url);
-        newPosts.push({
-          id: Date.now() + i,
-          owner: activeUser?.username || "user",
-          ownerId: activeUser?.id || Date.now(),
-          caption: i === 0 ? caption : "",
-          image: media.type === "image" ? persistentUrl : null,
-          video: media.type === "video" ? persistentUrl : null,
-          visibility: activeUser?.isPrivate ? "followers" : "public",
-          createdAt: new Date().toISOString(),
-          likes: 0,
-          comments: [],
+        // Note: created handled inside each branch above; no-op here.
+      } else {
+        // Fallback: client-only (no file objects available) - preserve previous behavior
+        const urlToDataUrl = async (url) => {
+          if (!url) return url;
+          // If it's already a data URL, keep it
+          if (url.startsWith("data:")) return url;
+          // If it's an http(s) URL, keep the public link (don't inline)
+          if (url.startsWith("http://") || url.startsWith("https://"))
+            return url;
+          // Otherwise attempt to fetch and convert (e.g. blob: or other schemes)
+          try {
+            const resp = await fetch(url);
+            const blob = await resp.blob();
+            return await new Promise((res, rej) => {
+              const reader = new FileReader();
+              reader.onloadend = () => res(reader.result);
+              reader.onerror = rej;
+              reader.readAsDataURL(blob);
+            });
+          } catch {
+            return url; // fallback
+          }
+        };
+        const newPosts = [];
+        for (let i = 0; i < selectedMedias.length; i++) {
+          const media = selectedMedias[i];
+          const persistentUrl = await urlToDataUrl(media.url);
+          newPosts.push({
+            id: Date.now() + i,
+            owner: activeUser?.username || "user",
+            ownerId: activeUser?.id || Date.now(),
+            caption: i === 0 ? caption : "",
+            image: media.type === "image" ? persistentUrl : null,
+            video: media.type === "video" ? persistentUrl : null,
+            visibility: activeUser?.isPrivate ? "followers" : "public",
+            createdAt: new Date().toISOString(),
+            likes: 0,
+            comments: [],
+          });
+        }
+        newPosts.forEach((p) => addPost(p));
+        login({
+          ...activeUser,
+          posts: (activeUser?.posts || 0) + newPosts.length,
         });
+        // revoke object URLs we created for UI previews (they're now converted)
+        selectedMedias.forEach((m) => {
+          try {
+            if (m.url && m.url.startsWith("blob:")) URL.revokeObjectURL(m.url);
+          } catch (e) {
+            void e;
+          }
+        });
+        navigate(`/profile/${encodeURIComponent(activeUser?.username)}`);
       }
-      newPosts.forEach((p) => addPost(p));
-      login({
-        ...activeUser,
-        posts: (activeUser?.posts || 0) + newPosts.length,
-      });
-      // revoke object URLs we created for UI previews (they're now converted)
-      selectedMedias.forEach((m) => {
-        try {
-          if (m.url && m.url.startsWith("blob:")) URL.revokeObjectURL(m.url);
-        } catch {
-          /* ignore */
-        }
-      });
-      navigate(`/profile/${encodeURIComponent(activeUser?.username)}`);
     } catch (err) {
       console.error(err);
       alert("Failed to post");
