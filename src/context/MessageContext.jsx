@@ -44,19 +44,79 @@ export const MessageProvider = ({ children }) => {
     setLoading(true);
     try {
       const res = await fetchConversations();
+      console.debug("MessageProvider.loadConversations response:", {
+        status: res?.status,
+        dataKeys: res?.data && typeof res.data,
+        sample: Array.isArray(res?.data) ? res.data.slice(0, 3) : res?.data,
+      });
       // Normalize server response shape. Some endpoints may return { results: [...] }
       const payload = res && res.data;
+      let serverConvs = [];
       if (Array.isArray(payload)) {
-        setConversations(payload);
+        serverConvs = payload;
       } else if (payload && Array.isArray(payload.results)) {
-        setConversations(payload.results);
+        serverConvs = payload.results;
       } else {
         console.warn(
           "MessageProvider: unexpected conversations response shape:",
           payload
         );
-        setConversations([]);
+        serverConvs = [];
       }
+
+      // Merge server conversations with local optimistic conversations so we
+      // don't lose locally-created messages when server doesn't include them
+      setConversations((prev) => {
+        try {
+          const prevMap = {};
+          (prev || []).forEach((c) => {
+            const key = String(c._id || c.id);
+            prevMap[key] = c;
+          });
+
+          const merged = (serverConvs || []).map((sc) => {
+            const key = String(sc._id || sc.id);
+            const local = prevMap[key];
+
+            // prefer server participants/messages when provided, otherwise keep local
+            const participants =
+              sc.participants && sc.participants.length
+                ? sc.participants
+                : local?.participants || [];
+
+            const messages =
+              sc.messages && sc.messages.length
+                ? sc.messages
+                : local?.messages || [];
+
+            return { ...sc, participants, messages };
+          });
+
+          // include any local-only conversations (optimistic ones) that server did not return
+          const serverKeys = new Set(
+            (serverConvs || []).map((s) => String(s._id || s.id))
+          );
+          const localsOnly = (prev || []).filter((c) => {
+            const k = String(c._id || c.id);
+            return !serverKeys.has(k);
+          });
+
+          if (localsOnly.length) {
+            console.debug(
+              "MessageProvider: preserving local-only conversations:",
+              localsOnly.map((c) => c._id || c.id)
+            );
+          }
+
+          return [...localsOnly, ...merged];
+        } catch (e) {
+          console.warn(
+            "Failed to merge conversations, falling back to server list",
+            e
+          );
+          return serverConvs || [];
+        }
+      });
     } catch (e) {
       console.warn("MessageProvider: failed to load conversations", e);
     } finally {
@@ -231,10 +291,31 @@ export const MessageProvider = ({ children }) => {
           (c) => String(c._id || c.id) === String(conversationId)
         );
         if (!found) {
+          // Populate participants when possible so the UI has metadata
+          const participants = [];
+          try {
+            if (msg.sender) {
+              const s =
+                typeof msg.sender === "object"
+                  ? msg.sender
+                  : { _id: msg.sender };
+              participants.push(s);
+            }
+            if (activeUser) {
+              participants.push({
+                _id: activeUser._id || activeUser.id,
+                username: activeUser.username,
+                profilePic: activeUser.profilePic,
+              });
+            }
+          } catch (e) {
+            console.warn("addMessageLocally: failed to infer participants", e);
+          }
+
           return [
             {
               _id: conversationId,
-              participants: [],
+              participants: participants.filter(Boolean),
               messages: [msg],
               unread: 1,
             },
@@ -336,6 +417,11 @@ export const MessageProvider = ({ children }) => {
     async (conversationId, payload) => {
       if (!activeUser) throw new Error("Not authenticated");
 
+      console.debug("sendMessageToServer: sending", {
+        conversationId,
+        payload,
+      });
+
       const tempMsg = {
         _id: `temp_${Date.now()}_${Math.floor(Math.random() * 10000)}`,
         sender: activeUser,
@@ -350,6 +436,7 @@ export const MessageProvider = ({ children }) => {
 
       try {
         const res = await apiSendMessage(conversationId, payload);
+        console.debug("sendMessageToServer: server response", { res });
         const serverMsg = res?.data;
         if (serverMsg) {
           // Replace temp message with server message
@@ -409,7 +496,13 @@ export const MessageProvider = ({ children }) => {
       );
       if (s && userId) {
         try {
-          joinRoom(userId).catch((e) => console.warn("joinRoom error", e));
+          try {
+            // joinRoom may or may not return a promise depending on socket implementation;
+            // await it defensively so `.catch` is not called on undefined.
+            await joinRoom(userId);
+          } catch (err) {
+            console.warn("joinRoom error", err);
+          }
           s.emit("authenticate", userId);
           console.log("socket: authenticated & joined room", userId, s.id);
         } catch (e) {
@@ -474,9 +567,40 @@ export const MessageProvider = ({ children }) => {
             (c) => String(c._id || c.id) === String(convId)
           );
           if (!found) {
-            console.log("ℹ️ New conversation, creating...");
+            console.log("ℹ️ New conversation, creating...", { convId, msg });
+            // Try to populate participants from message payload
+            const inferred = [];
+            try {
+              if (msg.participants && Array.isArray(msg.participants)) {
+                msg.participants.forEach((p) => inferred.push(p));
+              }
+              if (msg.sender) {
+                inferred.push(
+                  typeof msg.sender === "object"
+                    ? msg.sender
+                    : { _id: msg.sender }
+                );
+              }
+              if (activeUser) {
+                inferred.push({
+                  _id: activeUser._id || activeUser.id,
+                  username: activeUser.username,
+                });
+              }
+            } catch (e) {
+              console.warn(
+                "Failed to infer participants for new conversation:",
+                e
+              );
+            }
+
             return [
-              { _id: convId, participants: [], messages: [msg], unread: 1 },
+              {
+                _id: convId,
+                participants: inferred.filter(Boolean),
+                messages: [msg],
+                unread: 1,
+              },
               ...prev,
             ];
           } // ... rest of the setConversations logic remains the same ...

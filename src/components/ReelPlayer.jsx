@@ -7,12 +7,15 @@ import {
   FiBookmark,
   FiMoreHorizontal,
   FiMusic,
+  FiVolume2,
+  FiVolumeX,
 } from "react-icons/fi";
 import { AiFillHeart } from "react-icons/ai";
 
 const ReelPlayer = ({
   reel,
   idx,
+  total,
   videoRef,
   isActive,
   onToggleLike,
@@ -51,6 +54,16 @@ const ReelPlayer = ({
     if (v) v.muted = !!muted;
   }, [muted]);
 
+  // keyboard shortcut: press 'm' to toggle mute when this reel is active
+  useEffect(() => {
+    if (!isActive) return undefined;
+    const onKey = (e) => {
+      if (e.key === "m" || e.key === "M") setMuted((s) => !s);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [isActive]);
+
   // combine parent ref assignment with internal ref
   const assignRef = (el) => {
     localRef.current = el;
@@ -76,13 +89,22 @@ const ReelPlayer = ({
         </div>
       )}
 
-      {/* Progress bar at top */}
-      <div className="absolute left-0 right-0 top-0 h-1 z-40">
-        <div className="h-1 bg-white/30" />
-        <div
-          className="absolute left-0 top-0 h-1 bg-white"
-          style={{ width: `${progress}%` }}
-        />
+      {/* Segmented progress indicator at top */}
+      <div className="absolute left-0 right-0 top-3 z-40 px-3">
+        <div className="flex gap-1">
+          {(Array.from({ length: Math.max(1, total || 1) }) || []).map(
+            (_, i) => (
+              <div key={i} className="flex-1 h-1 bg-white/30 rounded">
+                <div
+                  className="h-1 bg-white rounded"
+                  style={{
+                    width: i < idx ? "100%" : i === idx ? `${progress}%` : "0%",
+                  }}
+                />
+              </div>
+            )
+          )}
+        </div>
       </div>
 
       {/* Pause icon overlay */}
@@ -100,7 +122,7 @@ const ReelPlayer = ({
           <img
             src={reel.profilePic || ""}
             alt={reel.username}
-            className="w-10 h-10 rounded-full object-cover ring-2 ring-white"
+            className="w-9 h-9 rounded-full object-cover ring-1 ring-white"
             onError={(e) => {
               e.currentTarget.src = "";
             }}
@@ -127,7 +149,25 @@ const ReelPlayer = ({
 
         <p className="text-sm font-medium mb-4 line-clamp-2">{reel.caption}</p>
 
-        <div className="absolute right-3 bottom-16 flex flex-col gap-5">
+        <div className="absolute right-3 bottom-16 flex flex-col gap-3">
+          {/* Mute / Unmute */}
+          <div className="flex flex-col items-center gap-1">
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                setMuted((s) => !s);
+              }}
+              className="p-2 rounded-full hover:scale-110 transition"
+              aria-pressed={muted}
+              aria-label={muted ? "Unmute" : "Mute"}
+            >
+              {muted ? (
+                <FiVolumeX className="w-6 h-6 text-white drop-shadow" />
+              ) : (
+                <FiVolume2 className="w-6 h-6 text-white drop-shadow" />
+              )}
+            </button>
+          </div>
           <div className="flex flex-col items-center gap-1">
             <button
               onClick={(e) => {
@@ -139,9 +179,9 @@ const ReelPlayer = ({
               aria-pressed={reel.liked}
             >
               {reel.liked ? (
-                <AiFillHeart className="w-7 h-7 text-red-500 drop-shadow" />
+                <AiFillHeart className="w-6 h-6 text-red-500 drop-shadow" />
               ) : (
-                <FiHeart className="w-7 h-7 text-white drop-shadow" />
+                <FiHeart className="w-6 h-6 text-white drop-shadow" />
               )}
             </button>
             <span className="text-xs font-medium drop-shadow">
@@ -157,7 +197,7 @@ const ReelPlayer = ({
               }}
               className="p-2 rounded-full hover:scale-110 transition"
             >
-              <FiMessageCircle className="w-7 h-7 text-white drop-shadow" />
+              <FiMessageCircle className="w-6 h-6 text-white drop-shadow" />
             </button>
             <span className="text-xs font-medium drop-shadow">
               {reel.comments}
@@ -171,15 +211,15 @@ const ReelPlayer = ({
             }}
             className="p-2 rounded-full hover:scale-110 transition"
           >
-            <FiSend className="w-7 h-7 text-white drop-shadow -rotate-12" />
+            <FiSend className="w-6 h-6 text-white drop-shadow -rotate-12" />
           </button>
 
           <button className="p-2 rounded-full hover:scale-110 transition">
-            <FiBookmark className="w-7 h-7 text-white drop-shadow" />
+            <FiBookmark className="w-6 h-6 text-white drop-shadow" />
           </button>
 
           <button className="p-2 rounded-full hover:scale-110 transition">
-            <FiMoreHorizontal className="w-7 h-7 text-white drop-shadow" />
+            <FiMoreHorizontal className="w-6 h-6 text-white drop-shadow" />
           </button>
 
           <div className="mt-2 p-2 bg-white/10 rounded-full">

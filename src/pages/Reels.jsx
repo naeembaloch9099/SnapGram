@@ -443,6 +443,7 @@ const Reels = () => {
             <ReelPlayer
               reel={reel}
               idx={idx}
+              total={postsOnly.length}
               videoRef={(el) => (videoRefs.current[idx] = el)}
               isActive={idx === currentIndex}
               onToggleLike={() => toggleLike(reel.id, activeUser?.username)}
