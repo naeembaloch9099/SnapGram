@@ -26,12 +26,9 @@ const StoryViewer = ({
   const [progress, setProgress] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
   const [mediaError, setMediaError] = useState(false);
-  const [debugConsole, setDebugConsole] = useState([]);
   const [mediaSrc, setMediaSrc] = useState(null);
   const [mediaIsVideo, setMediaIsVideo] = useState(false);
   const [_uploading, setUploading] = useState(false);
-  const [viewersOpen, setViewersOpen] = useState(false);
-  const [viewersList, setViewersList] = useState([]);
 
   const timerRef = useRef(null);
   const inputRef = useRef(null);
@@ -74,17 +71,10 @@ const StoryViewer = ({
     }
   };
 
-  // lightweight debug console helper (keeps recent events)
-  const pushDebug = useCallback((entry) => {
-    const item = { timestamp: Date.now(), ...entry };
-    setDebugConsole((d) => [item, ...d].slice(0, 12));
-    // mirror to browser console as well
-    console.debug("StoryViewer Debug:", item);
-  }, []);
+  // viewers UI removed per user request
 
   const fetchMediaViaProxy = async (storyId) => {
     if (!storyId) return null;
-    pushDebug({ type: "proxy_attempt", storyId });
     try {
       const res = await api.get(`/stories/proxy/${storyId}`, {
         responseType: "blob",
@@ -102,33 +92,12 @@ const StoryViewer = ({
         console.debug("StoryViewer: proxy media type detection failed", e);
         /* ignore */
       }
-      pushDebug({ type: "proxy_success", storyId, status: res.status });
+      console.debug("fetchMediaViaProxy success", storyId, res.status);
       return objUrl;
     } catch (err) {
       const msg = err?.message || String(err);
-      pushDebug({ type: "proxy_error", storyId, message: msg });
       console.warn("fetchMediaViaProxy failed", msg);
       return null;
-    }
-  };
-
-  const fetchViewers = async (storyId) => {
-    if (!storyId) return;
-    try {
-      pushDebug({ type: "fetch_viewers_attempt", storyId });
-      const res = await api.get(`/stories/${storyId}/viewers`);
-      setViewersList(res.data.viewers || []);
-      pushDebug({
-        type: "fetch_viewers_success",
-        storyId,
-        count: res.data.count,
-      });
-      return res.data.viewers || [];
-    } catch (err) {
-      const msg = err?.response?.data?.error || err?.message || String(err);
-      pushDebug({ type: "fetch_viewers_error", storyId, message: msg });
-      console.warn("fetchViewers failed", msg);
-      return [];
     }
   };
 
@@ -219,7 +188,7 @@ const StoryViewer = ({
       }
     };
     // The dependencies must cover both story change (current) and object URL (mediaSrc)
-  }, [current?._id, mediaSrc]);
+  }, [current, mediaSrc]);
 
   // When a proxied mediaSrc is set and it's a video, attempt to load and play it
   useEffect(() => {
@@ -310,40 +279,6 @@ const StoryViewer = ({
           </div>
         </div>
         <div className="flex items-center gap-3">
-          {activeUser && String(activeUser._id) === String(group.userId) && (
-            <button
-              onClick={async () => {
-                // fetch viewers for current story before opening
-                await fetchViewers(current?._id);
-                setViewersOpen(true);
-              }}
-              className="text-white text-sm bg-white/10 px-3 py-1 rounded flex items-center gap-2"
-              title="Viewers"
-            >
-              <svg
-                className="w-4 h-4"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-              >
-                <path
-                  d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8S1 12 1 12z"
-                  strokeWidth="1.5"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-                <circle
-                  cx="12"
-                  cy="12"
-                  r="3"
-                  strokeWidth="1.5"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-              </svg>
-              <span>{viewersList.length}</span>
-            </button>
-          )}
           <button onClick={onClose} className="text-white text-3xl">
             &times;
           </button>
@@ -402,20 +337,13 @@ const StoryViewer = ({
               }}
               onError={() => {
                 const msg = `video onError for ${current?.url}`;
-                pushDebug({
-                  type: "media_error",
-                  url: current?.url,
-                  message: msg,
-                });
+                console.debug("StoryViewer media_error:", msg);
                 setMediaError(true);
                 // attempt proxy fetch as a fallback
                 fetchMediaViaProxy(current._id).then((obj) => {
                   if (obj) {
                     setMediaError(false);
-                    pushDebug({
-                      type: "media_playable_via_proxy",
-                      storyId: current._id,
-                    });
+                    console.debug("media playable via proxy", current._id);
                   }
                 });
               }}
@@ -427,11 +355,7 @@ const StoryViewer = ({
             className="max-h-full max-w-full object-contain"
             onError={(e) => {
               const msg = `image onError for ${current?.url}`;
-              pushDebug({
-                type: "media_error",
-                url: current?.url,
-                message: msg,
-              });
+              console.debug("StoryViewer media_error:", msg);
               e.currentTarget && (e.currentTarget.src = "/default-avatar.png");
               fetchMediaViaProxy(current._id);
             }}
@@ -439,75 +363,7 @@ const StoryViewer = ({
         )}
       </div>
 
-      {/* Compact debug console (shows recent events) */}
-      {debugConsole.length > 0 && (
-        <div className="absolute bottom-4 left-4 z-30 bg-black/70 text-white text-xs p-2 rounded max-w-sm">
-          <div className="flex items-center justify-between">
-            <div className="font-medium">Story Debug</div>
-            <button
-              className="text-white/70 text-xs px-2"
-              onClick={() => setDebugConsole([])}
-            >
-              Clear
-            </button>
-          </div>
-          <div className="mt-2 max-h-40 overflow-auto space-y-1">
-            {debugConsole.map((d, i) => (
-              <div key={i} className="truncate">
-                [{new Date(d.timestamp).toLocaleTimeString()}] {d.type}
-                {d.storyId ? ` id=${d.storyId}` : ""}
-                {d.url ? ` url=${d.url}` : ""}
-                {d.status ? ` status=${d.status}` : ""}
-                {d.message ? ` msg=${d.message}` : ""}
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Viewers modal for story owner */}
-      {viewersOpen && (
-        <div className="fixed inset-0 z-60 flex items-center justify-center">
-          <div
-            className="absolute inset-0 bg-black/60"
-            onClick={() => setViewersOpen(false)}
-          />
-          <div className="relative z-70 bg-white w-80 max-w-full rounded p-4 text-black">
-            <div className="flex items-center justify-between mb-3">
-              <div className="font-medium">Viewers ({viewersList.length})</div>
-              <button onClick={() => setViewersOpen(false)} className="text-sm">
-                Close
-              </button>
-            </div>
-            <div className="max-h-64 overflow-auto">
-              {viewersList.length === 0 && (
-                <div className="text-sm text-gray-600">No viewers yet</div>
-              )}
-              {viewersList.map((v) => (
-                <div
-                  key={v.userId}
-                  className="flex items-center gap-3 py-2 border-b last:border-b-0"
-                >
-                  <img
-                    src={v.profilePic || "/default-avatar.png"}
-                    className="w-9 h-9 rounded-full object-cover"
-                    onError={(e) =>
-                      (e.currentTarget.src = "/default-avatar.png")
-                    }
-                  />
-                  <div className="flex-1">
-                    <div className="font-medium">{v.username || "User"}</div>
-                    <div className="text-xs text-gray-600">
-                      {new Date(v.lastViewedAt).toLocaleTimeString()}
-                    </div>
-                  </div>
-                  <button className="text-blue-600 text-sm">Message</button>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Viewers UI removed per user request */}
 
       {/* Swipe Down to Close */}
       <div className="absolute bottom-10 left-1/2 -translate-x-1/2 text-white/70">
