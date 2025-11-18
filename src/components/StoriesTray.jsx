@@ -1,40 +1,54 @@
-import React, { useEffect, useState, useContext } from "react";
+// src/components/StoriesTray.jsx
+import React, {
+  useState,
+  useEffect,
+  useContext,
+  useCallback,
+  useRef,
+} from "react";
 import StoryBubble from "./StoryBubble";
+import StoryViewer from "./StoryViewer";
 import AddStoryButton from "./AddStoryButton";
-import api from "../services/api";
+import { AnimatePresence } from "framer-motion";
 import { AuthContext } from "../context/AuthContext";
-
-// API base is handled by `src/services/api.js` (VITE_API_URL or dev proxy)
+import api from "../services/api";
 
 const StoriesTray = () => {
   const { activeUser } = useContext(AuthContext);
-  const [groups, setGroups] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
 
-  // keep only stories within the last 1 hour (3600s)
-  const withinOneHour = (iso) => {
+  const [groups, setGroups] = useState([]);
+  const [currentGroupIndex, setCurrentGroupIndex] = useState(0);
+  const [currentStoryIndex, setCurrentStoryIndex] = useState(0);
+  const [viewerOpen, setViewerOpen] = useState(false);
+  // upload handled inline via AddStoryButton; no modal state required
+
+  // Check if story is within last 1 hour
+  const withinOneHour = useCallback((iso) => {
     try {
       const t = new Date(iso).getTime();
       return Date.now() - t <= 60 * 60 * 1000;
     } catch {
       return false;
     }
-  };
+  }, []);
 
-  // Accept either: array of story docs OR an object with grouped data
-  const normalizeResponse = React.useCallback(
+  // Check if user is followed
+  const localIsFollowing = useCallback(
+    (targetId) =>
+      (activeUser?.following || []).some(
+        (f) =>
+          String(f._id || f) === String(targetId) ||
+          String(f) === String(targetId)
+      ),
+    [activeUser]
+  );
+
+  // Normalize stories from backend (supports both flat & grouped responses)
+  const normalizeGroups = useCallback(
     (data) => {
       if (!data) return [];
-      const following = (activeUser && activeUser.following) || [];
-      const localIsFollowing = (targetId) =>
-        following.some(
-          (f) =>
-            String(f._id || f) === String(targetId) ||
-            String(f) === String(targetId)
-        );
 
-      // If server already returned grouped payload (array of groups)
+      // Case 1: Already grouped by backend
       if (Array.isArray(data) && data.length > 0 && data[0].stories) {
         return data
           .map((g) => ({
@@ -44,18 +58,14 @@ const StoriesTray = () => {
             ),
           }))
           .filter((g) => {
-            const newest = (g.stories || [])[0];
-            if (!newest) return false;
-            // recency
-            if (!withinOneHour(newest.createdAt)) return false;
-            // respect private visibility: if private and I'm not following, hide
+            const newest = g.stories[0];
+            if (!newest || !withinOneHour(newest.createdAt)) return false;
             if (
               g.isPrivate &&
               !localIsFollowing(g.userId) &&
               String(g.userId) !== String(activeUser?._id)
             )
               return false;
-            // ensure follows: only show stories from accounts I follow (or my own)
             if (
               !localIsFollowing(g.userId) &&
               String(g.userId) !== String(activeUser?._id)
@@ -65,29 +75,33 @@ const StoriesTray = () => {
           });
       }
 
-      // If server returned a flat array of story documents, group by poster
+      // Case 2: Flat array → group manually
       if (Array.isArray(data)) {
-        const by = {};
+        const byUser = {};
         data.forEach((st) => {
-          const posterId =
+          const userId = String(
             st.userId ||
-            st.owner ||
-            (st.user && (st.user._id || st.user.id)) ||
-            st.posterId;
-          const key = String(posterId || "unknown");
-          if (!by[key])
-            by[key] = {
-              userId: key,
-              username: st.username || (st.user && st.user.username) || "",
+              st.owner ||
+              st.user?._id ||
+              st.user?.id ||
+              st.posterId ||
+              "unknown"
+          );
+          if (!byUser[userId]) {
+            byUser[userId] = {
+              userId,
+              username: st.username || st.user?.username || "User",
               profilePic:
-                st.profilePic || (st.user && st.user.profilePic) || "",
+                st.profilePic || st.user?.profilePic || "/default-avatar.png",
               stories: [],
-              hasViewed: !!st.hasViewed,
+              hasViewed: !!st.hasViewed || !!st.viewed,
               isPrivate: !!st.isPrivate,
             };
-          by[key].stories.push(st);
+          }
+          byUser[userId].stories.push(st);
         });
-        return Object.values(by)
+
+        return Object.values(byUser)
           .map((g) => ({
             ...g,
             stories: g.stories.sort(
@@ -95,9 +109,8 @@ const StoriesTray = () => {
             ),
           }))
           .filter((g) => {
-            const newest = (g.stories || [])[0];
-            if (!newest) return false;
-            if (!withinOneHour(newest.createdAt)) return false;
+            const newest = g.stories[0];
+            if (!newest || !withinOneHour(newest.createdAt)) return false;
             if (
               g.isPrivate &&
               !localIsFollowing(g.userId) &&
@@ -113,109 +126,202 @@ const StoriesTray = () => {
           });
       }
 
-      // if server returned { groups: [...] }
-      if (data.groups && Array.isArray(data.groups))
-        return normalizeResponse(data.groups);
       return [];
     },
-    [activeUser]
+    [activeUser, localIsFollowing, withinOneHour]
   );
 
-  const fetchStories = React.useCallback(async () => {
-    setLoading(true);
+  // Fetch stories
+  const fetchStories = useCallback(async () => {
     try {
       const res = await api.get("/stories/feed");
-      const json = res.data;
-      // helpful debug: log raw payload from server
-      console.debug("Stories feed raw:", json);
-      const grouped = normalizeResponse(json);
-      setGroups(grouped);
-      setError(null);
+      const normalized = normalizeGroups(res.data);
+      setGroups(normalized);
     } catch (err) {
-      // surface backend error message for debugging
-      console.warn("Stories fetch failed", err);
-      const msg =
-        err?.response?.data?.error || err?.message || "Failed to fetch stories";
-      setError(msg);
-      setGroups([]);
+      console.error("Failed to fetch stories:", err);
     }
-    setLoading(false);
-  }, [normalizeResponse]);
+  }, [normalizeGroups]);
 
+  // Initial load + polling every 15s
   useEffect(() => {
     fetchStories();
-    // refresh when stories are uploaded elsewhere in the app
-    const onChanged = () => fetchStories();
-    window.addEventListener("stories:changed", onChanged);
-    return () => window.removeEventListener("stories:changed", onChanged);
+    const interval = setInterval(fetchStories, 15000);
+    return () => clearInterval(interval);
   }, [fetchStories]);
 
-  // NOTE: compute following array inside normalizeResponse so we avoid hook dependency issues
-
-  const markViewed = (posterId) => {
-    setGroups((prev) =>
-      prev.map((g) => (g.userId === posterId ? { ...g, hasViewed: true } : g))
-    );
+  // Open viewer at specific group/story
+  const openViewer = (groupIdx, storyIdx = 0) => {
+    setCurrentGroupIndex(groupIdx);
+    setCurrentStoryIndex(storyIdx);
+    setViewerOpen(true);
   };
 
-  const handleBubbleClick = async (group) => {
-    const story = (group.stories || [])[0];
-    if (!story) return;
-    const storyId = story._id || story.id;
-    try {
-      await api.post(`/stories/${storyId}/log_interaction`, { type: "view" });
-    } catch (e) {
-      console.warn("Failed to log view", e);
+  // owner file input ref + handler (hooks must be top-level)
+  const ownerInputRef = useRef(null);
+
+  const handleOwnerFiles = useCallback(
+    async (files) => {
+      if (!files || files.length === 0) return;
+      const results = [];
+      for (let i = 0; i < files.length; i++) {
+        const f = files[i];
+        const fd = new FormData();
+        fd.append("file", f);
+        try {
+          const res = await api.post("/stories/upload", fd, {
+            headers: { "Content-Type": "multipart/form-data" },
+          });
+          results.push(res.data);
+        } catch (err) {
+          console.warn("Owner upload failed", err);
+        }
+      }
+      try {
+        window.dispatchEvent(
+          new CustomEvent("stories:changed", { detail: results })
+        );
+      } catch (e) {
+        console.log("CustomEvent not supported, using fallback", e);
+        try {
+          const ev = document.createEvent("CustomEvent");
+          ev.initCustomEvent("stories:changed", true, true, results);
+          window.dispatchEvent(ev);
+        } catch (e) {
+          console.log("error occured ", e);
+        }
+      }
+      try {
+        await fetchStories();
+      } catch (e) {
+        console.log(e);
+      }
+    },
+    [fetchStories]
+  );
+
+  const currentGroup = groups[currentGroupIndex];
+
+  const handleNextGroup = () => {
+    if (currentGroupIndex < groups.length - 1) {
+      setCurrentGroupIndex((i) => i + 1);
+      setCurrentStoryIndex(0);
+    } else {
+      setViewerOpen(false);
     }
-    markViewed(group.userId);
-    // TODO: open a story viewer modal/player — for now we just mark viewed
   };
 
-  if (loading) return null;
-  // show fetch error if present
-  if (error)
-    return (
-      <div className="w-full max-w-5xl mx-auto px-4 py-4">
-        <div className="text-sm text-red-600">
-          Stories error: {String(error)}
-        </div>
-      </div>
-    );
+  const handlePrevGroup = () => {
+    if (currentGroupIndex > 0) {
+      setCurrentGroupIndex((i) => i - 1);
+      setCurrentStoryIndex(0);
+    }
+  };
 
   return (
-    <div className="w-full max-w-5xl mx-auto px-4 py-4">
-      <div className="flex gap-3 overflow-x-auto pb-2">
-        {activeUser && (
-          <div className="flex-shrink-0">
-            <AddStoryButton
-              className=""
-              onUploaded={() => {
-                try {
-                  fetchStories();
-                } catch (e) {
-                  console.warn(e);
-                }
-              }}
-            />
-          </div>
-        )}
-        {groups.length === 0 ? (
-          <div className="text-sm text-gray-500">No stories</div>
-        ) : (
-          groups.map((g) => (
-            <div key={g.userId} className="flex-shrink-0">
-              <button
-                onClick={() => handleBubbleClick(g)}
-                className="focus:outline-none"
-                aria-label={`Open stories from ${g.username || "user"}`}
-              >
-                <StoryBubble group={g} />
-              </button>
-            </div>
-          ))
-        )}
+    <>
+      {/* Stories Tray */}
+      <div className="px-4 py-3 bg-white border-b overflow-x-auto scrollbar-hide">
+        <div className="flex gap-4">
+          {/* Your Story Bubble: if user already has stories show them, otherwise show upload button */}
+          {(() => {
+            const ownerIndex = groups.findIndex(
+              (g) => String(g.userId) === String(activeUser?._id)
+            );
+            if (ownerIndex >= 0) {
+              const ownerGroup = groups[ownerIndex];
+              return (
+                <>
+                  <input
+                    ref={ownerInputRef}
+                    type="file"
+                    accept="image/*,video/*"
+                    capture="environment"
+                    multiple
+                    className="hidden"
+                    onChange={(e) => handleOwnerFiles(e.target.files)}
+                  />
+                  <StoryBubble
+                    key={ownerGroup.userId}
+                    group={{
+                      ...ownerGroup,
+                      username:
+                        activeUser?.username ||
+                        ownerGroup.username ||
+                        "Your Story",
+                      profilePic:
+                        ownerGroup.profilePic ||
+                        activeUser?.profilePic ||
+                        "/default-avatar.png",
+                    }}
+                    isYourStory={true}
+                    onClick={() => openViewer(ownerIndex)}
+                    onAdd={() =>
+                      ownerInputRef.current && ownerInputRef.current.click()
+                    }
+                  />
+                </>
+              );
+            }
+            return (
+              <div className="flex-shrink-0">
+                <AddStoryButton
+                  onUploaded={() => {
+                    try {
+                      fetchStories();
+                    } catch (e) {
+                      console.warn(e);
+                    }
+                  }}
+                />
+              </div>
+            );
+          })()}
+
+          {/* Others' Stories (exclude current user's own group to avoid duplicate) */}
+          {groups
+            .filter((group) => String(group.userId) !== String(activeUser?._id))
+            .map((group) => {
+              const realIndex = groups.findIndex(
+                (g) => String(g.userId) === String(group.userId)
+              );
+              return (
+                <StoryBubble
+                  key={group.userId}
+                  group={group}
+                  onClick={() => openViewer(realIndex)}
+                />
+              );
+            })}
+        </div>
       </div>
-    </div>
+
+      {/* Full-Screen Story Viewer */}
+      <AnimatePresence>
+        {viewerOpen && currentGroup && (
+          <StoryViewer
+            group={currentGroup}
+            initialIndex={currentStoryIndex}
+            onClose={() => setViewerOpen(false)}
+            onNextGroup={handleNextGroup}
+            onPrevGroup={handlePrevGroup}
+            onViewed={(userId) => {
+              setGroups((prev) =>
+                prev.map((g) =>
+                  g.userId === userId
+                    ? {
+                        ...g,
+                        stories: g.stories.map((s) => ({ ...s, viewed: true })),
+                      }
+                    : g
+                )
+              );
+            }}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* Add story is handled inline by the AddStoryButton above */}
+    </>
   );
 };
 

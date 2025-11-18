@@ -1,14 +1,14 @@
 /* eslint-disable react-refresh/only-export-components */
-import React, { createContext, useState, useEffect } from "react";
+import * as React from "react";
 import api from "../services/api";
 
-export const AuthContext = createContext();
+export const AuthContext = React.createContext();
 
 export const AuthProvider = ({ children }) => {
-  const [activeUser, setActiveUser] = useState(null);
+  const [activeUser, setActiveUser] = React.useState(null);
 
   // Try to refresh access token on mount using httpOnly refresh cookie
-  useEffect(() => {
+  React.useEffect(() => {
     let mounted = true;
     (async () => {
       console.log(
