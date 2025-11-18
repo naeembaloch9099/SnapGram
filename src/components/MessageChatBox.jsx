@@ -211,13 +211,11 @@ const MessageContent = ({ message, isFromMe }) => {
 
   // If this message references a Post, render a small post preview (image/video + caption)
   if (post) {
-    const apiUrl =
-      import.meta.env.VITE_API_URL ||
-      "https://snapserver-production.up.railway.app";
+    const apiBase = import.meta.env.VITE_API_URL || "";
     let prMediaUrl = null;
     const raw = post.image || post.video || null;
     if (raw) {
-      if (raw.startsWith("/")) prMediaUrl = `${apiUrl}${raw}`;
+      if (raw.startsWith("/")) prMediaUrl = apiBase ? `${apiBase}${raw}` : raw;
       else prMediaUrl = raw;
     }
 
@@ -271,13 +269,11 @@ const MessageContent = ({ message, isFromMe }) => {
   }
 
   // --- YOUR OLD CODE: This part renders images, videos, audio ---
-  const apiUrl =
-    import.meta.env.VITE_API_URL ||
-    "https://snapserver-production.up.railway.app";
+  const apiBase = import.meta.env.VITE_API_URL || "";
   let fullMediaUrl = null;
   if (mediaUrl) {
     if (mediaUrl.startsWith("/")) {
-      fullMediaUrl = `${apiUrl}${mediaUrl}`;
+      fullMediaUrl = apiBase ? `${apiBase}${mediaUrl}` : mediaUrl;
     } else {
       fullMediaUrl = mediaUrl;
     }

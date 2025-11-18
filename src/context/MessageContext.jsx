@@ -490,10 +490,7 @@ export const MessageProvider = ({ children }) => {
     loadConversations();
     const userId = activeUser.id || activeUser._id;
     (async () => {
-      const s = await initSocket(
-        import.meta.env.VITE_API_URL ||
-          "https://snapserver-production.up.railway.app"
-      );
+      const s = await initSocket(import.meta.env.VITE_API_URL || "");
       if (s && userId) {
         try {
           try {

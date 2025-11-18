@@ -53,6 +53,7 @@ const BottomNav = () => {
             <div className="text-2xl">{it.icon}</div>
           </NavLink>
         ))}
+        {/* (Add story moved into the Stories tray) */}
       </div>
     </div>
   );

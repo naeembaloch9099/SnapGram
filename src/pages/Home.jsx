@@ -1,5 +1,6 @@
 import React, { useContext, useEffect } from "react";
 import PostCard from "../components/PostCard";
+import StoriesTray from "../components/StoriesTray";
 import { PostContext } from "../context/PostContext";
 import { AuthContext } from "../context/AuthContext";
 import { useLocation } from "react-router-dom";
@@ -94,6 +95,9 @@ const Home = () => {
           </p>
         </div>
       </div>
+
+      {/* Stories Tray (grouped story bubbles) */}
+      <StoriesTray />
 
       {/* Posts Grid with Cards */}
       <div className="max-w-5xl mx-auto px-4 py-6 sm:py-8">

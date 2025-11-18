@@ -50,6 +50,9 @@ const Sidebar = () => {
 
         {/* Navigation */}
         <nav className="space-y-2">
+          {/* Add Story (desktop) */}
+          {/* Add story control moved to Stories tray to avoid duplicate UI */}
+
           {items.map((it) => {
             if (it.label === "Notifications") {
               return (

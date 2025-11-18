@@ -1,5 +1,6 @@
 // vite.config.js
-import { defineConfig } from "vite";
+import { defineConfig, loadEnv } from "vite";
+import process from "process";
 import react from "@vitejs/plugin-react";
 
 // Export an async config so we can dynamically import optional build-time
@@ -9,11 +10,20 @@ import react from "@vitejs/plugin-react";
 export default defineConfig(async ({ command }) => {
   const plugins = [react()];
 
+  // Allow the dev proxy target to be overridden with an env var so
+  // developers can point the frontend dev server to a local backend.
+  const defaultProxyTarget = "https://snapserver-production.up.railway.app";
+  const viteEnv = loadEnv(process.env.NODE_ENV || "development", process.cwd());
+  const proxyTarget =
+    viteEnv.VITE_DEV_PROXY_TARGET ||
+    viteEnv.DEV_PROXY_TARGET ||
+    defaultProxyTarget;
+
   const server = {
     host: true,
     proxy: {
       "/api": {
-        target: "https://snapserver-production.up.railway.app",
+        target: proxyTarget,
         changeOrigin: true,
         secure: false,
       },

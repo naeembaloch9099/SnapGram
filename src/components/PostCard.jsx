@@ -300,14 +300,14 @@ const PostCard = ({ post, onAddComment, showComments = true }) => {
   const totalCommentsCount = (post?.comments || localComments || []).length;
   // ---------------------------------------------
 
-  // Normalize media URLs: if stored as a server-relative path ("/uploads/.."),
-  // prefix with the API URL so the browser requests the asset from the backend.
-  const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:4000";
+  // Normalize media URLs: prefix server-relative paths with VITE_API_URL when provided.
+  // If VITE_API_URL is not set, keep server-relative paths as-is so the dev proxy works.
+  const apiBase = import.meta.env.VITE_API_URL || "";
 
   const resolveMedia = (raw) => {
     if (!raw) return null;
     if (typeof raw !== "string") return null;
-    if (raw.startsWith("/")) return `${apiUrl}${raw}`;
+    if (raw.startsWith("/")) return apiBase ? `${apiBase}${raw}` : raw;
     return raw;
   };
 
