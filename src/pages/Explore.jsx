@@ -1,5 +1,6 @@
 // src/pages/Explore.jsx
 import React, { useState, useEffect, useRef, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
 import { FiSearch, FiX, FiHeart, FiMessageCircle } from "react-icons/fi";
 import SuggestionRow from "../components/SuggestionRow";
 import api from "../services/api";
@@ -360,13 +361,11 @@ const Explore = () => {
         ) : (
           <div className="grid grid-cols-3 gap-1">
             {filteredPosts.map((post, i) => (
-              <div
+              <PostTile
                 key={post._id || post.id}
-                ref={i === filteredPosts.length - 3 ? lastPostRef : null}
-                className="aspect-square relative overflow-hidden group cursor-pointer bg-gray-100 dark:bg-gray-800"
-              >
-                <ExplorePost post={post} />
-              </div>
+                post={post}
+                refProp={i === filteredPosts.length - 3 ? lastPostRef : null}
+              />
             ))}
           </div>
         )}
@@ -462,6 +461,37 @@ const ExplorePost = ({ post }) => {
         </div>
       )}
     </>
+  );
+};
+
+// PostTile: clickable wrapper that navigates to the correct route (post view or reels)
+const PostTile = ({ post, refProp }) => {
+  const navigate = useNavigate();
+  const id = post._id || post.id;
+  const handleClick = (e) => {
+    // if a link or button inside was clicked, let it handle it
+    const tag = e.target?.tagName?.toLowerCase();
+    if (tag === "a" || tag === "button" || e.defaultPrevented) return;
+    if (post.video) {
+      navigate(`/reels?focus=${encodeURIComponent(id)}`);
+    } else {
+      navigate(`/post/${encodeURIComponent(id)}`);
+    }
+  };
+
+  return (
+    <div
+      ref={refProp}
+      className="aspect-square relative overflow-hidden group cursor-pointer bg-gray-100 dark:bg-gray-800"
+      role="button"
+      tabIndex={0}
+      onClick={handleClick}
+      onKeyDown={(e) => {
+        if (e.key === "Enter") handleClick(e);
+      }}
+    >
+      <ExplorePost post={post} />
+    </div>
   );
 };
 
