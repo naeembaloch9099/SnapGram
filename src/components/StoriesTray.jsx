@@ -137,6 +137,18 @@ const StoriesTray = () => {
       const res = await api.get("/stories/feed");
       const normalized = normalizeGroups(res.data);
       setGroups(normalized);
+      // Expose for temporary debugging: inspect in DevTools with `window.__SNAPGRAM_STORIES`
+      try {
+        window.__SNAPGRAM_STORIES = normalized;
+        window.__SNAPGRAM_STORIES_TS = Date.now();
+      } catch (e) {
+        console.log("show error", e);
+        /* ignore if read-only */
+      }
+      console.debug("stories.fetchStories -> loaded groups", {
+        count: Array.isArray(normalized) ? normalized.length : 0,
+        sample: (normalized || []).slice(0, 3),
+      });
     } catch (err) {
       console.error("Failed to fetch stories:", err);
     }
@@ -155,6 +167,70 @@ const StoriesTray = () => {
     setCurrentStoryIndex(storyIdx);
     setViewerOpen(true);
   };
+
+  // Listen for external requests to open a story viewer (e.g. from message thumbnail)
+  useEffect(() => {
+    const handler = (ev) => {
+      try {
+        const detail = ev?.detail || {};
+        const raw =
+          detail.storyId ||
+          detail.story_id ||
+          detail.storyUrl ||
+          detail.url ||
+          null;
+        if (!raw) return;
+
+        // Normalize candidate strings for comparison
+        const candidate = String(raw);
+
+        // Find group and story index containing this story by trying several story fields
+        for (let gi = 0; gi < groups.length; gi++) {
+          const g = groups[gi];
+          const si = (g.stories || []).findIndex((s) => {
+            try {
+              console.debug("stories:open received", {
+                detail,
+                groupsCount: Array.isArray(groups) ? groups.length : 0,
+              });
+
+              const checks = [
+                s._id,
+                s.id,
+                s.storyId,
+                s.url,
+                s.media?.url,
+                s.image,
+                s.thumbnail,
+                s.postId,
+              ];
+              return checks.some((c) => !!c && String(c) === candidate);
+            } catch (e) {
+              console.log("error occured ", e);
+              return false;
+            }
+          });
+          if (si >= 0) {
+            setCurrentGroupIndex(gi);
+            setCurrentStoryIndex(si);
+            setViewerOpen(true);
+            return;
+          }
+        }
+
+        // Nothing matched — helpful debug for developers
+        console.info("stories:open dispatched but no matching story found", {
+          candidate,
+          groupsCount: groups.length,
+        });
+      } catch (e) {
+        console.debug("stories:open handler failed", e);
+      }
+    };
+
+    window.addEventListener("stories:open", handler);
+    return () => window.removeEventListener("stories:open", handler);
+  }, [groups]);
 
   // owner file input ref + handler (hooks must be top-level)
   const ownerInputRef = useRef(null);

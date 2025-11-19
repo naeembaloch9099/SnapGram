@@ -6,8 +6,11 @@ import React, {
   useCallback,
   useContext,
 } from "react";
-import { motion as M } from "framer-motion";
+import { motion as M, AnimatePresence } from "framer-motion";
 import api from "../services/api";
+import { FiTrash2 } from "react-icons/fi";
+import { useToast } from "../hooks/useToast";
+import { ToastContainer } from "./Toast";
 import { AuthContext } from "../context/AuthContext";
 
 const StoryViewer = ({
@@ -20,8 +23,6 @@ const StoryViewer = ({
 }) => {
   const stories = group?.stories || [];
   const { activeUser } = useContext(AuthContext);
-
-  // --- State and Refs ---
   const [index, setIndex] = useState(initialIndex);
   const [progress, setProgress] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
@@ -36,6 +37,33 @@ const StoryViewer = ({
 
   const current = stories[index];
   const duration = mediaIsVideo ? 15000 : 7000; // 15s video, 7s image
+  const { toasts, showToast, removeToast } = useToast();
+  const [replyText, setReplyText] = useState("");
+  const [sendingReply, setSendingReply] = useState(false);
+  const [viewersOpen, setViewersOpen] = useState(false);
+  const [viewers, setViewers] = useState([]);
+  const [viewersLoading, setViewersLoading] = useState(false);
+
+  // format relative times like 'just now', '12 mins ago', '1 hr ago'
+  const formatRelativeTime = (when) => {
+    try {
+      const then = new Date(when);
+      const diff = Date.now() - then.getTime();
+      const seconds = Math.floor(diff / 1000);
+      if (seconds < 60) return "just now";
+      const minutes = Math.floor(seconds / 60);
+      if (minutes < 60)
+        return minutes === 1 ? "1 min ago" : `${minutes} mins ago`;
+      const hours = Math.floor(minutes / 60);
+      if (hours < 24) return hours === 1 ? "1 hr ago" : `${hours} hrs ago`;
+      const days = Math.floor(hours / 24);
+      if (days === 1) return "Yesterday";
+      return `${days}d ago`;
+    } catch (e) {
+      console.log("formatRelativeTime error:", e);
+      return new Date(when).toLocaleString();
+    }
+  };
 
   // --- Utility Functions ---
 
@@ -69,6 +97,27 @@ const StoryViewer = ({
       ev.initCustomEvent("stories:changed", true, true, results);
       window.dispatchEvent(ev);
     }
+
+    // show a friendly toast to the user about the result
+    try {
+      if (results.length === 1) {
+        showToast &&
+          showToast(
+            "✅ Story added — it will expire in 1 hour.",
+            "success",
+            4000
+          );
+      } else if (results.length > 1) {
+        showToast &&
+          showToast(
+            `✅ ${results.length} stories added — they will expire in 1 hour.`,
+            "success",
+            4500
+          );
+      }
+    } catch (e) {
+      console.debug("showToast failed", e);
+    }
   };
 
   // viewers UI removed per user request
@@ -100,6 +149,54 @@ const StoryViewer = ({
       return null;
     }
   };
+
+  // Send a reply as a direct message to the story owner
+  const sendReply = useCallback(async () => {
+    if (!current || !current._id) return;
+    if (!replyText || String(replyText).trim().length === 0) return;
+    try {
+      setSendingReply(true);
+      // Ensure conversation exists (server: getOrCreateConversation)
+      const convRes = await api.post("/messages/conversation", {
+        participantId: group.userId,
+      });
+      const convId = convRes?.data?._id || convRes?.data?.id;
+
+      // Build message payload with story reference in metadata
+      const payload = {
+        text: replyText.trim(),
+        metadata: {
+          storyId: current._id,
+          storyUrl: current.url,
+          storyType:
+            current.metadata?.resource_type ||
+            (mediaIsVideo ? "video" : "image"),
+        },
+      };
+
+      // Send the message
+      await api.post(`/messages/${convId}`, payload);
+
+      // Log the interaction on the story (server-side record)
+      try {
+        await api.post(`/stories/${current._id}/log_interaction`, {
+          type: "reply",
+          metadata: { text: replyText.trim() },
+        });
+      } catch (e) {
+        // non-fatal if logging fails
+        console.debug("story reply logging failed", e?.message || e);
+      }
+
+      showToast && showToast("✅ Reply sent", "success", 3000);
+      setReplyText("");
+    } catch (err) {
+      console.warn("sendReply failed", err?.message || err);
+      showToast && showToast("Failed to send reply", "error", 3500);
+    } finally {
+      setSendingReply(false);
+    }
+  }, [current, group.userId, replyText, mediaIsVideo, showToast]);
 
   // --- Navigation Callbacks ---
 
@@ -210,6 +307,82 @@ const StoryViewer = ({
     }
   }, [mediaSrc, mediaIsVideo]);
 
+  // Fetch viewers for the current story (owner only)
+  const fetchViewers = async () => {
+    if (!current || !current._id) return;
+    setViewersLoading(true);
+    try {
+      const res = await api.get(`/stories/${current._id}/viewers`);
+      const v = res?.data?.viewers || [];
+      setViewers(v);
+    } catch (e) {
+      console.warn("fetchViewers failed", e?.message || e);
+      showToast && showToast("Failed to load viewers", "error", 3000);
+    } finally {
+      setViewersLoading(false);
+    }
+  };
+
+  const sendHeartToViewer = async (viewerId) => {
+    if (!current || !current._id || !viewerId) return;
+    try {
+      await api.post(`/stories/${current._id}/log_interaction`, {
+        type: "reaction",
+        metadata: { targetUserId: viewerId, reaction: "heart" },
+      });
+      setViewers((prev) =>
+        prev.map((p) =>
+          p.userId === viewerId ? { ...p, likedByOwner: true } : p
+        )
+      );
+      showToast && showToast("❤️ Liked", "success", 1500);
+    } catch (e) {
+      console.warn("sendHeartToViewer failed", e?.message || e);
+      showToast && showToast("Failed to send heart", "error", 2500);
+    }
+  };
+
+  const removeHeartFromViewer = async (viewerId) => {
+    if (!current || !current._id || !viewerId) return;
+    try {
+      await api.delete(`/stories/${current._id}/reaction`, {
+        params: { targetUserId: viewerId },
+      });
+      setViewers((prev) =>
+        prev.map((p) =>
+          p.userId === viewerId ? { ...p, likedByOwner: false } : p
+        )
+      );
+      showToast && showToast("💔 Removed", "success", 1500);
+    } catch (e) {
+      console.warn("removeHeartFromViewer failed", e?.message || e);
+      showToast && showToast("Failed to remove heart", "error", 2500);
+    }
+  };
+
+  const openConversationWith = async (viewerId) => {
+    if (!viewerId) return;
+    try {
+      const conv = await api.post("/messages/conversation", {
+        participantId: viewerId,
+      });
+      const convId = conv?.data?._id || conv?.data?.id;
+      showToast && showToast("Opened conversation", "success", 1500);
+      // Navigate to messages route (SPA route assumed at /messages/:convId)
+      try {
+        if (convId) {
+          // If you have a SPA router, you may replace this with router navigation.
+          window.location.href = `/messages/${convId}`;
+        }
+      } catch (navErr) {
+        console.debug("navigation to messages failed", navErr);
+      }
+    } catch (e) {
+      console.warn("openConversationWith failed", e?.message || e);
+      showToast && showToast("Failed to open conversation", "error", 2500);
+    }
+  };
+
   if (!current) return null;
 
   // --- Render ---
@@ -271,10 +444,7 @@ const StoryViewer = ({
           <div>
             <p className="text-white font-medium">{group.username}</p>
             <p className="text-white/70 text-xs">
-              {new Date(current.createdAt).toLocaleTimeString([], {
-                hour: "numeric",
-                minute: "2-digit",
-              })}
+              {formatRelativeTime(current.createdAt)}
             </p>
           </div>
         </div>
@@ -282,6 +452,99 @@ const StoryViewer = ({
           <button onClick={onClose} className="text-white text-3xl">
             &times;
           </button>
+          {activeUser && String(activeUser._id) === String(group.userId) && (
+            <button
+              onClick={(ev) => {
+                ev.stopPropagation();
+                // Show a persistent confirmation toast with Cancel and Confirm
+                // Use showToast with a React node as the message (Toast now supports nodes)
+                const id = showToast
+                  ? showToast(
+                      <div className="flex flex-col gap-3">
+                        <div className="font-medium text-sm text-black">
+                          Are you sure you want to delete this story?
+                        </div>
+                        <div className="flex gap-2 justify-end">
+                          <button
+                            className="px-3 py-1 rounded-md border border-gray-300 bg-white text-sm"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              removeToast && removeToast(id);
+                            }}
+                          >
+                            Cancel
+                          </button>
+                          <button
+                            className="px-3 py-1 rounded-md bg-red-600 text-white text-sm"
+                            onClick={async (e) => {
+                              e.stopPropagation();
+                              try {
+                                removeToast && removeToast(id);
+                                await api.delete(`/stories/${current._id}`);
+                                showToast &&
+                                  showToast("Story deleted", "success", 2500);
+                                // notify other parts of the app to refresh stories tray
+                                try {
+                                  window.dispatchEvent(
+                                    new CustomEvent("stories:changed", {
+                                      detail: { deletedId: current._id },
+                                    })
+                                  );
+                                } catch (e) {
+                                  console.warn(
+                                    "CustomEvent not supported, using fallback",
+                                    e
+                                  );
+                                  const ev =
+                                    document.createEvent("CustomEvent");
+                                  ev.initCustomEvent(
+                                    "stories:changed",
+                                    true,
+                                    true,
+                                    {
+                                      deletedId: current._id,
+                                    }
+                                  );
+                                  window.dispatchEvent(ev);
+                                }
+                                // adjust viewer: advance or close
+                                if (stories.length > 1) {
+                                  if (index >= stories.length - 1) {
+                                    setIndex((i) => Math.max(0, i - 1));
+                                  }
+                                } else {
+                                  if (onNextGroup) onNextGroup();
+                                  else onClose && onClose();
+                                }
+                              } catch (err) {
+                                console.warn(
+                                  "delete story failed",
+                                  err?.message || err
+                                );
+                                showToast &&
+                                  showToast(
+                                    "Failed to delete story",
+                                    "error",
+                                    3000
+                                  );
+                              }
+                            }}
+                          >
+                            Confirm Delete
+                          </button>
+                        </div>
+                      </div>,
+                      "info",
+                      0
+                    )
+                  : null;
+              }}
+              title="Delete story"
+              className="text-white text-2xl p-1 hover:opacity-80"
+            >
+              <FiTrash2 />
+            </button>
+          )}
         </div>
       </div>
 
@@ -295,6 +558,46 @@ const StoryViewer = ({
         className="hidden"
         onChange={(e) => handleUploadFiles(e.target.files)}
       />
+
+      {/* bottom-centered viewers pill (owner only) - shows eye + views count */}
+      {/* Instagram 2025 Exact Eye Button — Bottom Center */}
+      {activeUser && String(activeUser._id) === String(group.userId) && (
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            setViewersOpen(true);
+            if (viewers.length === 0) fetchViewers();
+          }}
+          className="absolute bottom-24 left-1/2 -translate-x-1/2 
+                     bg-white px-9 py-4 rounded-full 
+                     flex items-center gap-3 
+                     shadow-2xl z-40
+                     active:scale-95 transition-transform duration-75"
+        >
+          <svg
+            className="w-6 h-6 text-black"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2.2}
+              d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+            />
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M2.458 12C3.732 7.943 7.523 5 12 5c4.477 0 8.268 2.943 9.542 7-1.274 4.057-5.065 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
+            />
+          </svg>
+          <span className="font-bold text-lg text-black">
+            {viewers.length || 0}
+          </span>
+        </button>
+      )}
 
       {/* Media */}
       <div
@@ -362,8 +665,248 @@ const StoryViewer = ({
           />
         )}
       </div>
+      {/* Reply composer (bottom) - Instagram-like compact style */}
+      {activeUser && String(activeUser._id) !== String(group.userId) && (
+        <div
+          className="absolute left-0 right-0 bottom-20 px-4 pb-6 z-60"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="max-w-2xl mx-auto flex items-center gap-3">
+            <div className="flex-1">
+              <div className="flex items-center bg-white/10 backdrop-blur-sm border border-white/10 rounded-full px-3 py-2 shadow-sm">
+                <input
+                  value={replyText}
+                  onChange={(e) => setReplyText(e.target.value)}
+                  placeholder="Send message..."
+                  className="flex-1 bg-transparent text-white placeholder-white/60 text-sm focus:outline-none"
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && !e.shiftKey) {
+                      e.preventDefault();
+                      sendReply();
+                    }
+                  }}
+                />
+                {/* small quick react / like icon (non-functional visual) */}
+                <button
+                  type="button"
+                  className="ml-2 mr-1 shrink-0 p-1 rounded-full hover:bg-white/10"
+                  title="Like"
+                  onClick={(ev) => ev.stopPropagation()}
+                >
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    className="w-5 h-5 text-white/80"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth="1.5"
+                      d="M4.318 6.318a4.5 4.5 0 016.364 0L12 7.636l1.318-1.318a4.5 4.5 0 116.364 6.364L12 21l-7.682-8.318a4.5 4.5 0 010-6.364z"
+                    />
+                  </svg>
+                </button>
+              </div>
+            </div>
 
-      {/* Viewers UI removed per user request */}
+            <div className="shrink-0">
+              <button
+                disabled={sendingReply || replyText.trim().length === 0}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  sendReply();
+                }}
+                className={`w-10 h-10 rounded-full flex items-center justify-center bg-indigo-600 text-white shadow-md ${
+                  sendingReply ? "opacity-60" : "hover:bg-indigo-700"
+                }`}
+                title={sendingReply ? "Sending..." : "Send"}
+              >
+                {sendingReply ? (
+                  <svg
+                    className="w-5 h-5 animate-pulse"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    xmlns="http://www.w3.org/2000/svg"
+                  >
+                    <circle
+                      cx="12"
+                      cy="12"
+                      r="10"
+                      strokeWidth="2"
+                      className="opacity-25"
+                    />
+                    <path
+                      d="M4 12a8 8 0 018-8"
+                      strokeWidth="2"
+                      className="opacity-75"
+                    />
+                  </svg>
+                ) : (
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    className="w-5 h-5"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth="2"
+                      d="M22 2L11 13"
+                    />
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth="2"
+                      d="M22 2l-7 20-4-9-9-4 20-7z"
+                    />
+                  </svg>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Instagram 2025 Exact Swipe-Up Viewers Sheet */}
+      <AnimatePresence>
+        {viewersOpen &&
+          activeUser &&
+          String(activeUser._id) === String(group.userId) && (
+            <M.div
+              initial={{ y: "100%" }}
+              animate={{ y: 0 }}
+              exit={{ y: "100%" }}
+              transition={{ type: "spring", damping: 35, stiffness: 400 }}
+              className="fixed inset-x-0 bottom-0 bg-white rounded-t-3xl z-50 max-h-[85vh] flex flex-col shadow-2xl"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Drag Handle */}
+              <div className="py-4 text-center">
+                <div className="w-12 h-1.5 bg-gray-300 rounded-full mx-auto" />
+              </div>
+
+              {/* Header */}
+              <div className="px-6 pb-4 flex items-center justify-between border-b border-gray-100">
+                <h3 className="text-lg font-bold text-black">Views</h3>
+                <button
+                  onClick={() => setViewersOpen(false)}
+                  className="text-3xl text-gray-500 hover:text-gray-700 transition-colors"
+                >
+                  ×
+                </button>
+              </div>
+
+              {/* Viewers List */}
+              <div className="flex-1 overflow-y-auto">
+                {viewersLoading ? (
+                  <div className="text-center py-12 text-gray-500">
+                    Loading viewers...
+                  </div>
+                ) : viewers.length === 0 ? (
+                  <div className="text-center py-12 text-gray-500">
+                    No views yet
+                  </div>
+                ) : (
+                  viewers.map((viewer) => (
+                    <div
+                      key={viewer.userId}
+                      className="flex items-center justify-between px-6 py-4 hover:bg-gray-50 transition-colors"
+                    >
+                      <div className="flex items-center gap-4">
+                        <img
+                          src={viewer.profilePic || "/default-avatar.png"}
+                          alt={viewer.username}
+                          className="w-12 h-12 rounded-full object-cover"
+                        />
+                        <div>
+                          <p className="font-medium text-gray-900">
+                            {viewer.username}
+                          </p>
+                          <p className="text-sm text-gray-500">
+                            {formatRelativeTime(viewer.viewedAt)}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        {/* Message Button (Instagram style) */}
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            openConversationWith(viewer.userId);
+                          }}
+                          className="p-2 rounded-full hover:bg-gray-200 transition-colors"
+                          title="Message"
+                        >
+                          <svg
+                            className="w-6 h-6 text-gray-700"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
+                            />
+                          </svg>
+                        </button>
+
+                        {/* Heart toggle (owner -> viewer) */}
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (viewer.likedByOwner)
+                              removeHeartFromViewer(viewer.userId);
+                            else sendHeartToViewer(viewer.userId);
+                          }}
+                          className="p-2 rounded-full hover:bg-gray-200 transition-colors"
+                          title={viewer.likedByOwner ? "Unheart" : "Heart"}
+                        >
+                          {viewer.likedByOwner ? (
+                            <svg
+                              className="w-6 h-6 text-red-500"
+                              viewBox="0 0 24 24"
+                              fill="currentColor"
+                              xmlns="http://www.w3.org/2000/svg"
+                            >
+                              <path d="M12 21s-7.5-4.873-9.243-7.01C.826 11.7 3.01 7 7.5 7c2.24 0 3.74 1.07 4.5 2 .76-.93 2.26-2 4.5-2 4.49 0 6.674 4.7 4.743 6.99C19.5 16.127 12 21 12 21z" />
+                            </svg>
+                          ) : (
+                            <svg
+                              className="w-6 h-6 text-gray-700"
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                              xmlns="http://www.w3.org/2000/svg"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M4.318 6.318a4.5 4.5 0 016.364 0L12 7.636l1.318-1.318a4.5 4.5 0 116.364 6.364L12 21l-7.682-8.318a4.5 4.5 0 010-6.364z"
+                              />
+                            </svg>
+                          )}
+                        </button>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+
+              {/* Instagram Exact Footer */}
+              <div className="p-4 text-center text-xs text-gray-500 border-t border-gray-100">
+                Viewer lists and view counts aren't available after 48 hours.
+              </div>
+            </M.div>
+          )}
+      </AnimatePresence>
 
       {/* Swipe Down to Close */}
       <div className="absolute bottom-10 left-1/2 -translate-x-1/2 text-white/70">
@@ -376,6 +919,8 @@ const StoryViewer = ({
         </svg>
         <p className="text-xs">Swipe down to close</p>
       </div>
+      {/* Toasts */}
+      <ToastContainer toasts={toasts} onRemove={removeToast} />
     </div>
   );
 };

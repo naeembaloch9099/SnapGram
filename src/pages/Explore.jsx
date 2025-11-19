@@ -79,15 +79,8 @@ const MobileLoader = () => (
   </div>
 );
 
-// === Video & Image ===
-const RANDOM_VIDEOS = Array(30).fill(
-  "https://player.vimeo.com/external/440218304.sd.mp4?s=4f0c8f8b8e6c7a5d5e6f7a8b9c0d1e2f3g4h5i6j&profile_id=165"
-);
-const PLACEHOLDER_IMAGE =
-  "https://images.unsplash.com/photo-1517841905240-472988babdf9?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80";
-
+// === Config ===
 const POSTS_PER_PAGE = 15;
-
 const Explore = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [suggestions, setSuggestions] = useState([]);
@@ -100,32 +93,35 @@ const Explore = () => {
   const [searchMode, setSearchMode] = useState("accounts"); // "accounts" or "posts"
   const observer = useRef();
   const debounceRef = useRef(null);
+  const isMountedRef = useRef(false);
 
-  // Generate posts
-  const generatePosts = useCallback((pageNum) => {
-    return Array.from({ length: POSTS_PER_PAGE }, (_, i) => {
-      const index = (pageNum - 1) * POSTS_PER_PAGE + i;
-      const isVideo = Math.random() > 0.4;
-      return {
-        id: `post-${index}`,
-        image: isVideo ? null : PLACEHOLDER_IMAGE,
-        video: isVideo ? RANDOM_VIDEOS[index % RANDOM_VIDEOS.length] : null,
-        likes: Math.floor(Math.random() * 8000) + 200,
-        comments: Math.floor(Math.random() * 300),
-        caption: `Moment #${index + 1} #nature #travel`,
-        promesa: true,
-      };
-    });
-  }, []);
+  // Helper: fetch posts from API (feed)
+  const fetchPosts = async (pageNum = 1) => {
+    try {
+      setLoading(true);
+      const pageIdx = Math.max(0, pageNum - 1);
+      const res = await api.get(
+        `/posts?page=${pageIdx}&limit=${POSTS_PER_PAGE}`
+      );
+      const rows = res.data || [];
+      if (pageNum === 1) setPosts(rows);
+      else setPosts((prev) => [...prev, ...(rows || [])]);
+      setHasMore(rows.length === POSTS_PER_PAGE);
+    } catch (e) {
+      console.debug("fetch posts error", e);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   // Initial load
   useEffect(() => {
-    const timer = setTimeout(() => {
-      setPosts(generatePosts(1));
-      setLoading(false);
-    }, 800);
-    return () => clearTimeout(timer);
-  }, [generatePosts]);
+    isMountedRef.current = true;
+    fetchPosts(1);
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
 
   // Infinite scroll
   const lastPostRef = useCallback(
@@ -142,17 +138,11 @@ const Explore = () => {
     [loading, hasMore]
   );
 
-  // Load more
+  // Load more on page change
   useEffect(() => {
     if (page === 1) return;
-    setLoading(true);
-    const timer = setTimeout(() => {
-      setPosts((prev) => [...prev, ...generatePosts(page)]);
-      setHasMore(page < 8);
-      setLoading(false);
-    }, 600);
-    return () => clearTimeout(timer);
-  }, [page, generatePosts]);
+    fetchPosts(page);
+  }, [page]);
 
   // === YOUR ORIGINAL SEARCH LOGIC (100% RESTORED) ===
   const handleSearchChange = (e) => {
@@ -183,24 +173,33 @@ const Explore = () => {
           res = await api.get(
             `/users/search?q=${encodeURIComponent(v.trim())}`
           );
+          const results = res.data.results || [];
+          const elapsed = Date.now() - start;
+          const remaining = Math.max(0, MIN_VISIBLE_MS - elapsed);
+          setTimeout(() => {
+            setSuggestions(results);
+            setShowSuggestions(results.length > 0);
+            setSuggestionsLoading(false);
+          }, remaining);
         } else {
-          // Search for posts by caption
+          // Search for posts by caption or hashtag
           res = await api.get(
             `/posts/search?q=${encodeURIComponent(v.trim())}`
           );
+          const results = res.data.results || [];
+          const elapsed = Date.now() - start;
+          const remaining = Math.max(0, MIN_VISIBLE_MS - elapsed);
+          setTimeout(() => {
+            // show results in grid (replace current posts)
+            setPosts(results);
+            // also set suggestions for dropdown consistency
+            setSuggestions(results);
+            setShowSuggestions(results.length > 0);
+            setSuggestionsLoading(false);
+          }, remaining);
         }
-        const results = res.data.results || [];
-        const elapsed = Date.now() - start;
-        const remaining = Math.max(0, MIN_VISIBLE_MS - elapsed);
-        // ensure loader is visible for the minimum time before showing results
-        setTimeout(() => {
-          setSuggestions(results);
-          setShowSuggestions(results.length > 0);
-          setSuggestionsLoading(false);
-        }, remaining);
       } catch (e) {
         console.debug("search error", e);
-        // hide dropdown if error
         const elapsed = Date.now() - start;
         const remaining = Math.max(0, MIN_VISIBLE_MS - elapsed);
         setTimeout(() => {
@@ -212,11 +211,7 @@ const Explore = () => {
     }, 200);
   };
 
-  const filteredPosts = searchQuery
-    ? posts.filter((p) =>
-        p.caption.toLowerCase().includes(searchQuery.toLowerCase())
-      )
-    : posts;
+  const filteredPosts = posts;
 
   return (
     <div
@@ -366,7 +361,7 @@ const Explore = () => {
           <div className="grid grid-cols-3 gap-1">
             {filteredPosts.map((post, i) => (
               <div
-                key={post.id}
+                key={post._id || post.id}
                 ref={i === filteredPosts.length - 3 ? lastPostRef : null}
                 className="aspect-square relative overflow-hidden group cursor-pointer bg-gray-100 dark:bg-gray-800"
               >
@@ -442,11 +437,15 @@ const ExplorePost = ({ post }) => {
         <div className="flex gap-4 text-white text-sm font-semibold">
           <div className="flex items-center gap-1">
             <FiHeart className="w-5 h-5 fill-white" />
-            <span>{post.likes.toLocaleString()}</span>
+            <span>{(post.likes || 0).toLocaleString()}</span>
           </div>
           <div className="flex items-center gap-1">
             <FiMessageCircle className="w-5 h-5 fill-white" />
-            <span>{post.comments}</span>
+            <span>
+              {Array.isArray(post.comments)
+                ? post.comments.length
+                : post.comments || 0}
+            </span>
           </div>
         </div>
       </div>

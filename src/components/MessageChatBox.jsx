@@ -19,6 +19,7 @@ import {
 // We get the new 'startCall' and 'call' state from the context
 import { MessageContext } from "../context/MessageContext";
 import ChatSkeleton from "./ChatSkeleton";
+import StoryViewer from "./StoryViewer";
 import { AuthContext } from "../context/AuthContext";
 // --- YOUR PREVIOUS CODE (FOR TEXT/IMAGE/VOICE) ---
 import { sendMessage } from "../services/messageService";
@@ -45,6 +46,34 @@ const formatMessageTime = (date) => {
     month: "short",
     day: "numeric",
   });
+};
+
+// Format a full timestamp similar to Instagram DM: "Yesterday at 20:29" or "05 March, 09:56"
+// (prefixed with underscore because it's not currently used elsewhere)
+const _formatFullTimestamp = (date) => {
+  if (!date) return "";
+  try {
+    const d = new Date(date);
+    const now = new Date();
+    const diffMs = now - d;
+    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+    const time = d.toLocaleTimeString([], {
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+    if (diffDays === 0) return `Today ${time}`;
+    if (diffDays === 1) return `Yesterday ${time}`;
+    return (
+      d.toLocaleDateString([], {
+        month: "2-digit",
+        day: "2-digit",
+        year: "numeric",
+      }) + `, ${time}`
+    );
+  } catch (e) {
+    console.error("Error formatting full timestamp:", e);
+    return "Invalid date format";
+  }
 };
 
 // --- YOUR PREVIOUS CODE ---
@@ -355,6 +384,8 @@ const MessageChatBox = ({ conversationId }) => {
   // preview audio is handled inside AudioBubble; only keep preview URL state
   const [creatingConversation, setCreatingConversation] = useState(false);
   const [tempConversationId, setTempConversationId] = useState(null);
+  // Local viewer fallback when StoriesTray doesn't contain the story
+  const [localViewerGroup, setLocalViewerGroup] = useState(null);
 
   // --- YOUR OLD useEffects: Unchanged ---
   const currentConversation = useMemo(() => {
@@ -650,6 +681,75 @@ const MessageChatBox = ({ conversationId }) => {
     startCall(callType, otherUser, id);
   };
 
+  // Open a story in the StoriesTray / StoryViewer by dispatching a global event
+  const openStoryById = (storyId) => {
+    if (!storyId) return;
+    // Normalize possible shapes: string id, {_id:..}, {id:..}
+    let idToSend = storyId;
+    try {
+      if (typeof storyId === "object") {
+        idToSend =
+          storyId._id || storyId.id || (storyId.toString && storyId.toString());
+      }
+      idToSend = String(idToSend);
+    } catch (e) {
+      console.debug("openStoryById: failed to normalize id", e);
+    }
+
+    console.info("MessageChatBox.openStoryById -> dispatching stories:open", {
+      storyId: idToSend,
+    });
+    try {
+      window.dispatchEvent(
+        new CustomEvent("stories:open", {
+          detail: { storyId: idToSend, story_id: idToSend },
+        })
+      );
+      console.info(
+        "MessageChatBox.openStoryById -> dispatched stories:open (CustomEvent)",
+        { storyId: idToSend }
+      );
+    } catch {
+      try {
+        const ev = document.createEvent("CustomEvent");
+        ev.initCustomEvent("stories:open", true, true, {
+          storyId: idToSend,
+          story_id: idToSend,
+        });
+        window.dispatchEvent(ev);
+      } catch (err) {
+        console.debug("Failed to dispatch stories:open", err);
+      }
+    }
+  };
+
+  // Lightweight click wrapper for story thumbnails — logs metadata and then opens the story
+  const handleStoryClick = (message) => (ev) => {
+    try {
+      if (ev && ev.preventDefault) ev.preventDefault();
+      const meta = message?.metadata || null;
+      const candidate =
+        meta?.storyId ||
+        meta?.story_id ||
+        meta?.story?.id ||
+        meta?.storyUrl ||
+        meta?.storyImage ||
+        null;
+      console.info("MessageChatBox: story thumbnail clicked", {
+        candidate,
+        metadata: meta,
+        messageId: message?._id || message?.id,
+      });
+      if (!candidate) {
+        console.warn("MessageChatBox: no story id found in metadata", message);
+      }
+      // preserve existing behaviour: dispatch event
+      openStoryById(candidate || meta || null);
+    } catch (err) {
+      console.error("MessageChatBox.handleStoryClick error", err);
+    }
+  };
+
   // --- YOUR OLD JSX (Unchanged) ---
   if (!id) {
     return (
@@ -819,6 +919,112 @@ const MessageChatBox = ({ conversationId }) => {
                 String(activeUser?._id || activeUser?.id);
               const isCall = m.text?.startsWith("[call-");
               const hasMedia = !!m.media || !!m.mediaUrl;
+
+              // Instagram 2025 Perfect Story Reply — Big thumbnail on top + reply below
+              if (m.metadata && (m.metadata.storyId || m.metadata.storyUrl)) {
+                const storyThumb =
+                  m.metadata.storySnapshot?.image ||
+                  m.metadata.storySnapshot?.url ||
+                  m.metadata.storyUrl ||
+                  m.metadata.storyImage ||
+                  null;
+
+                const senderName =
+                  m.sender?.displayName || m.sender?.username || "Someone";
+
+                const replyText =
+                  m.text?.trim() || m.metadata?.text?.trim() || "❤️";
+
+                return (
+                  <div
+                    key={m._id || m.id}
+                    className={`flex ${
+                      isFromMe ? "justify-end" : "justify-start"
+                    } px-4 my-5`}
+                  >
+                    <div className="flex flex-col gap-3 max-w-[80%]">
+                      {/* Caption moved into compact overlay on the thumbnail */}
+
+                      {/* Thumbnail + Reply Bubble */}
+                      <div
+                        className={`flex flex-col ${
+                          isFromMe ? "items-end" : "items-start"
+                        } gap-3`}
+                      >
+                        {/* Story Thumbnail - Instagram Size */}
+                        {storyThumb && (
+                          <div
+                            role="button"
+                            tabIndex={0}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") handleStoryClick(m)(e);
+                            }}
+                            onClick={(e) => handleStoryClick(m)(e)}
+                            className="relative rounded-2xl overflow-hidden shadow-xl border border-gray-200 w-72 h-96 cursor-pointer"
+                          >
+                            <img
+                              src={storyThumb}
+                              alt="Story reply"
+                              className="w-full h-full object-cover"
+                            />
+                            {/* Instagram-style dark gradient overlay */}
+                            <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
+                            {/* Sender avatar overlay (top-left) */}
+                            {m.sender && (
+                              <img
+                                src={m.sender.profilePic || m.sender.avatar}
+                                alt={m.sender.username || m.sender.displayName}
+                                className="absolute top-3 left-3 w-10 h-10 rounded-full border-2 border-white object-cover shadow"
+                                onError={(e) =>
+                                  (e.currentTarget.src = "/default-avatar.png")
+                                }
+                              />
+                            )}
+
+                            {/* Tiny clickable caption overlay (bottom-left) */}
+                            <button
+                              type="button"
+                              onClick={(ev) => {
+                                ev.stopPropagation();
+                                handleStoryClick(m)(ev);
+                              }}
+                              className="absolute left-3 bottom-3 bg-black/60 text-white text-[11px] px-2 py-0.5 rounded-full shadow-sm hover:bg-black/70"
+                            >
+                              {isFromMe
+                                ? "You replied"
+                                : `${senderName} replied`}
+                            </button>
+                          </div>
+                        )}
+
+                        {/* Reply Bubble */}
+                        <div className="max-w-[85%]">
+                          <div
+                            className={`rounded-3xl px-5 py-3.5 shadow-lg ${
+                              isFromMe
+                                ? "bg-[#0095F6] text-white rounded-br-none"
+                                : "bg-white text-black border border-gray-200 rounded-bl-none"
+                            }`}
+                          >
+                            <p className="text-sm leading-snug whitespace-pre-wrap">
+                              {replyText}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Timestamp */}
+                      <p
+                        className={`text-xs text-gray-400 ${
+                          isFromMe ? "text-right" : "text-left"
+                        } mt-1`}
+                      >
+                        {formatMessageTime(m.createdAt)}
+                      </p>
+                    </div>
+                  </div>
+                );
+              }
 
               if (isCall && !hasMedia) {
                 return (
@@ -1090,6 +1296,13 @@ const MessageChatBox = ({ conversationId }) => {
           )}
         </div>
       </div>
+      {localViewerGroup && (
+        <StoryViewer
+          group={localViewerGroup}
+          initialIndex={0}
+          onClose={() => setLocalViewerGroup(null)}
+        />
+      )}
     </div>
   );
 };

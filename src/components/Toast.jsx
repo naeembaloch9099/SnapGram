@@ -32,13 +32,14 @@ const ToastItem = ({ toast, onRemove }) => {
     warning: FiAlertCircle,
   }[type];
 
-  // Safely format message: sometimes callers pass an object (e.g. { code, message })
-  // which would cause React to throw 'Objects are not valid as a React child'.
-  const renderMessage =
-    message && typeof message === "object"
-      ? // prefer a `.message` key if present, otherwise stringify cheaply
-        message.message || JSON.stringify(message)
-      : message;
+  // Allow message to be a React node, an object with `.message`, or a string.
+  // If it's a React element, render it directly. If it's an object, prefer
+  // `.message` key. Otherwise render string or JSON fallback.
+  const renderMessage = React.isValidElement(message)
+    ? message
+    : message && typeof message === "object"
+    ? message.message || JSON.stringify(message)
+    : message;
 
   return (
     <div
