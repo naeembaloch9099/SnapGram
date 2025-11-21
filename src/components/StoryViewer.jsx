@@ -44,6 +44,9 @@ const StoryViewer = ({
   const [viewersOpen, setViewersOpen] = useState(false);
   const [viewers, setViewers] = useState([]);
   const [viewersLoading, setViewersLoading] = useState(false);
+  const [_myHeartReactions, _setMyHeartReactions] = useState(new Set()); // Track my likes per story
+  const [_heartCount, _setHeartCount] = useState(0); // Total likes on current story
+  const [myLiked, setMyLiked] = useState(false); // Did I like this story?
 
   // format relative times like 'just now', '12 mins ago', '1 hr ago'
   const formatRelativeTime = (when) => {
@@ -104,14 +107,14 @@ const StoryViewer = ({
       if (results.length === 1) {
         showToast &&
           showToast(
-            "✅ Story added — it will expire in 1 hour.",
+            "✅ Story added — it will expire in 10 hours.",
             "success",
             4000
           );
       } else if (results.length > 1) {
         showToast &&
           showToast(
-            `✅ ${results.length} stories added — they will expire in 1 hour.`,
+            `✅ ${results.length} stories added — they will expire in 10 hours.`,
             "success",
             4500
           );
@@ -250,6 +253,21 @@ const StoryViewer = ({
     else if (x > (2 * width) / 3) goNext();
   };
 
+  // Check if current viewer has liked this story
+  const checkIfLiked = useCallback(async () => {
+    if (!current || !current._id || !activeUser) return;
+    try {
+      const res = await api.get(`/stories/${current._id}/my-like`);
+      setMyLiked(res?.data?.liked || false);
+    } catch (e) {
+      // 404 means not liked, other errors are ignored
+      if (e?.response?.status !== 404) {
+        console.debug("checkIfLiked failed", e?.message || e);
+      }
+      setMyLiked(false);
+    }
+  }, [current, activeUser]);
+
   // --- Effects ---
 
   // 1. Progress Timer Logic
@@ -280,7 +298,19 @@ const StoryViewer = ({
   useEffect(() => {
     if (current && !current.viewed) {
       onViewed?.(group.userId);
-      // NOTE: An API call to log interaction (type: 'view') should ideally happen here.
+      // Log view interaction to backend
+      try {
+        api
+          .post(`/stories/${current._id}/log_interaction`, {
+            type: "view",
+            metadata: {},
+          })
+          .catch((e) => {
+            console.debug("Failed to log view interaction", e?.message || e);
+          });
+      } catch (e) {
+        console.debug("View logging error", e);
+      }
     }
   }, [index, group.userId, onViewed, current]);
 
@@ -288,6 +318,9 @@ const StoryViewer = ({
   useEffect(() => {
     setMediaError(false);
     setMediaSrc(null); // Reset media source when story changes
+    // Fetch like status when story changes
+    checkIfLiked();
+    // ...existing code...
     // decide initial media kind from story metadata / url
     try {
       const isVideo = (() => {
@@ -318,7 +351,7 @@ const StoryViewer = ({
       }
     };
     // The dependencies must cover both story change (current) and object URL (mediaSrc)
-  }, [current, mediaSrc]);
+  }, [current, mediaSrc, checkIfLiked]);
 
   // When a proxied mediaSrc is set and it's a video, attempt to load and play it
   useEffect(() => {
@@ -356,40 +389,32 @@ const StoryViewer = ({
     }
   };
 
-  const sendHeartToViewer = async (viewerId) => {
-    if (!current || !current._id || !viewerId) return;
+  // Viewer's like function (when non-owner likes the story)
+  const sendLikeToStory = async () => {
+    if (!current || !current._id || !activeUser) return;
     try {
       await api.post(`/stories/${current._id}/log_interaction`, {
         type: "reaction",
-        metadata: { targetUserId: viewerId, reaction: "heart" },
+        metadata: { reaction: "heart" },
       });
-      setViewers((prev) =>
-        prev.map((p) =>
-          p.userId === viewerId ? { ...p, likedByOwner: true } : p
-        )
-      );
+      setMyLiked(true);
       showToast && showToast("❤️ Liked", "success", 1500);
     } catch (e) {
-      console.warn("sendHeartToViewer failed", e?.message || e);
-      showToast && showToast("Failed to send heart", "error", 2500);
+      console.warn("sendLikeToStory failed", e?.message || e);
+      showToast && showToast("Failed to like story", "error", 2500);
     }
   };
 
-  const removeHeartFromViewer = async (viewerId) => {
-    if (!current || !current._id || !viewerId) return;
+  // Viewer's unlike function
+  const removeLikeFromStory = async () => {
+    if (!current || !current._id || !activeUser) return;
     try {
-      await api.delete(`/stories/${current._id}/reaction`, {
-        params: { targetUserId: viewerId },
-      });
-      setViewers((prev) =>
-        prev.map((p) =>
-          p.userId === viewerId ? { ...p, likedByOwner: false } : p
-        )
-      );
+      await api.delete(`/stories/${current._id}/reaction`);
+      setMyLiked(false);
       showToast && showToast("💔 Removed", "success", 1500);
     } catch (e) {
-      console.warn("removeHeartFromViewer failed", e?.message || e);
-      showToast && showToast("Failed to remove heart", "error", 2500);
+      console.warn("removeLikeFromStory failed", e?.message || e);
+      showToast && showToast("Failed to remove like", "error", 2500);
     }
   };
 
@@ -720,27 +745,45 @@ const StoryViewer = ({
                     }
                   }}
                 />
-                {/* small quick react / like icon (non-functional visual) */}
+                {/* Heart like icon - functional for viewers */}
                 <button
                   type="button"
-                  className="ml-2 mr-1 shrink-0 p-1 rounded-full hover:bg-white/10"
-                  title="Like"
-                  onClick={(ev) => ev.stopPropagation()}
+                  className="ml-2 mr-1 shrink-0 p-1 rounded-full hover:bg-white/10 transition-colors"
+                  title={myLiked ? "Unlike" : "Like"}
+                  onClick={(ev) => {
+                    ev.stopPropagation();
+                    if (myLiked) {
+                      removeLikeFromStory();
+                    } else {
+                      sendLikeToStory();
+                    }
+                  }}
                 >
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    className="w-5 h-5 text-white/80"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth="1.5"
-                      d="M4.318 6.318a4.5 4.5 0 016.364 0L12 7.636l1.318-1.318a4.5 4.5 0 116.364 6.364L12 21l-7.682-8.318a4.5 4.5 0 010-6.364z"
-                    />
-                  </svg>
+                  {myLiked ? (
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      className="w-5 h-5 text-red-500"
+                      viewBox="0 0 24 24"
+                      fill="currentColor"
+                    >
+                      <path d="M12 21s-7.5-4.873-9.243-7.01C.826 11.7 3.01 7 7.5 7c2.24 0 3.74 1.07 4.5 2 .76-.93 2.26-2 4.5-2 4.49 0 6.674 4.7 4.743 6.99C19.5 16.127 12 21 12 21z" />
+                    </svg>
+                  ) : (
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      className="w-5 h-5 text-white/80"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth="1.5"
+                        d="M4.318 6.318a4.5 4.5 0 016.364 0L12 7.636l1.318-1.318a4.5 4.5 0 116.364 6.364L12 21l-7.682-8.318a4.5 4.5 0 010-6.364z"
+                      />
+                    </svg>
+                  )}
                 </button>
               </div>
             </div>
@@ -851,11 +894,28 @@ const StoryViewer = ({
                       className="flex items-center justify-between px-6 py-4 hover:bg-gray-50 transition-colors"
                     >
                       <div className="flex items-center gap-4">
-                        <img
-                          src={viewer.profilePic || "/default-avatar.png"}
-                          alt={viewer.username}
-                          className="w-12 h-12 rounded-full object-cover"
-                        />
+                        {/* Avatar with heart badge */}
+                        <div className="relative">
+                          <img
+                            src={viewer.profilePic || "/default-avatar.png"}
+                            alt={viewer.username}
+                            className="w-12 h-12 rounded-full object-cover"
+                          />
+                          {/* Small red heart badge on bottom-right of avatar */}
+                          {viewer.likedByOwner && (
+                            <div className="absolute -bottom-1 -right-1 bg-white rounded-full p-0.5 shadow-md">
+                              <svg
+                                className="w-4 h-4 text-red-500"
+                                viewBox="0 0 24 24"
+                                fill="currentColor"
+                                xmlns="http://www.w3.org/2000/svg"
+                                title="Liked your story"
+                              >
+                                <path d="M12 21s-7.5-4.873-9.243-7.01C.826 11.7 3.01 7 7.5 7c2.24 0 3.74 1.07 4.5 2 .76-.93 2.26-2 4.5-2 4.49 0 6.674 4.7 4.743 6.99C19.5 16.127 12 21 12 21z" />
+                              </svg>
+                            </div>
+                          )}
+                        </div>
                         <div>
                           <p className="font-medium text-gray-900">
                             {viewer.username}
@@ -866,7 +926,7 @@ const StoryViewer = ({
                         </div>
                       </div>
 
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-3">
                         {/* Message Button (Instagram style) */}
                         <button
                           onClick={(e) => {
@@ -889,44 +949,6 @@ const StoryViewer = ({
                               d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
                             />
                           </svg>
-                        </button>
-
-                        {/* Heart toggle (owner -> viewer) */}
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            if (viewer.likedByOwner)
-                              removeHeartFromViewer(viewer.userId);
-                            else sendHeartToViewer(viewer.userId);
-                          }}
-                          className="p-2 rounded-full hover:bg-gray-200 transition-colors"
-                          title={viewer.likedByOwner ? "Unheart" : "Heart"}
-                        >
-                          {viewer.likedByOwner ? (
-                            <svg
-                              className="w-6 h-6 text-red-500"
-                              viewBox="0 0 24 24"
-                              fill="currentColor"
-                              xmlns="http://www.w3.org/2000/svg"
-                            >
-                              <path d="M12 21s-7.5-4.873-9.243-7.01C.826 11.7 3.01 7 7.5 7c2.24 0 3.74 1.07 4.5 2 .76-.93 2.26-2 4.5-2 4.49 0 6.674 4.7 4.743 6.99C19.5 16.127 12 21 12 21z" />
-                            </svg>
-                          ) : (
-                            <svg
-                              className="w-6 h-6 text-gray-700"
-                              fill="none"
-                              stroke="currentColor"
-                              viewBox="0 0 24 24"
-                              xmlns="http://www.w3.org/2000/svg"
-                            >
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                strokeWidth={2}
-                                d="M4.318 6.318a4.5 4.5 0 016.364 0L12 7.636l1.318-1.318a4.5 4.5 0 116.364 6.364L12 21l-7.682-8.318a4.5 4.5 0 010-6.364z"
-                              />
-                            </svg>
-                          )}
                         </button>
                       </div>
                     </div>

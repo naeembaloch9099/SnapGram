@@ -22,11 +22,11 @@ const StoriesTray = () => {
   const [viewerOpen, setViewerOpen] = useState(false);
   // upload handled inline via AddStoryButton; no modal state required
 
-  // Check if story is within last 1 hour
-  const withinOneHour = useCallback((iso) => {
+  // Check if story is within last 10 hours (stories expire after 10 hours)
+  const withinExpirationTime = useCallback((iso) => {
     try {
       const t = new Date(iso).getTime();
-      return Date.now() - t <= 60 * 60 * 1000;
+      return Date.now() - t <= 10 * 60 * 60 * 1000; // 10 hours
     } catch {
       return false;
     }
@@ -59,7 +59,8 @@ const StoriesTray = () => {
           }))
           .filter((g) => {
             const newest = g.stories[0];
-            if (!newest || !withinOneHour(newest.createdAt)) return false;
+            if (!newest || !withinExpirationTime(newest.createdAt))
+              return false;
             if (
               g.isPrivate &&
               !localIsFollowing(g.userId) &&
@@ -110,7 +111,8 @@ const StoriesTray = () => {
           }))
           .filter((g) => {
             const newest = g.stories[0];
-            if (!newest || !withinOneHour(newest.createdAt)) return false;
+            if (!newest || !withinExpirationTime(newest.createdAt))
+              return false;
             if (
               g.isPrivate &&
               !localIsFollowing(g.userId) &&
@@ -128,7 +130,7 @@ const StoriesTray = () => {
 
       return [];
     },
-    [activeUser, localIsFollowing, withinOneHour]
+    [activeUser, localIsFollowing, withinExpirationTime]
   );
 
   // Fetch stories
