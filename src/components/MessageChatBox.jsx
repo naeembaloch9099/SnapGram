@@ -154,13 +154,26 @@ const InstagramVideoPlayer = ({ src }) => {
 const AudioBubble = ({ src, isFromMe = false, filename }) => {
   const aRef = useRef(null);
   const [playing, setPlaying] = useState(false);
+  const [audioError, setAudioError] = useState(null);
 
   useEffect(() => {
     const a = aRef.current;
     if (!a) return;
     const onEnded = () => setPlaying(false);
+    const onError = (e) => {
+      console.warn(
+        "Audio playback error:",
+        e.target.error?.message || "Unknown error"
+      );
+      setAudioError("Unable to load audio");
+      setPlaying(false);
+    };
     a.addEventListener("ended", onEnded);
-    return () => a.removeEventListener("ended", onEnded);
+    a.addEventListener("error", onError);
+    return () => {
+      a.removeEventListener("ended", onEnded);
+      a.removeEventListener("error", onError);
+    };
   }, []);
 
   const toggle = (e) => {
@@ -171,8 +184,20 @@ const AudioBubble = ({ src, isFromMe = false, filename }) => {
       a.pause();
       setPlaying(false);
     } else {
-      a.play().catch(() => {});
-      setPlaying(true);
+      // Ensure audio context is resumed before playing
+      const playPromise = a.play();
+      if (playPromise !== undefined) {
+        playPromise
+          .then(() => {
+            setPlaying(true);
+          })
+          .catch((error) => {
+            console.warn("Audio playback failed:", error);
+            setPlaying(false);
+          });
+      } else {
+        setPlaying(true);
+      }
     }
   };
 
@@ -188,22 +213,53 @@ const AudioBubble = ({ src, isFromMe = false, filename }) => {
         /* allow clicking bubble to toggle play */
         const a = aRef.current;
         if (a) {
-          if (playing) a.pause();
-          else a.play().catch(() => {});
-          setPlaying(!playing);
+          if (playing) {
+            a.pause();
+            setPlaying(false);
+          } else {
+            const playPromise = a.play();
+            if (playPromise !== undefined) {
+              playPromise
+                .then(() => setPlaying(true))
+                .catch((error) => {
+                  console.warn("Audio playback failed:", error);
+                  setPlaying(false);
+                });
+            } else {
+              setPlaying(true);
+            }
+          }
         }
       }}
     >
-      <audio ref={aRef} src={src} preload="metadata" className="sr-only" />
+      <audio
+        ref={aRef}
+        src={src}
+        preload="metadata"
+        className="sr-only"
+        crossOrigin="anonymous"
+      />
       <button
         type="button"
         onClick={toggle}
+        disabled={!!audioError}
         className={`flex items-center justify-center w-8 h-8 rounded-full ${
-          isFromMe ? "bg-white text-[#0095F6]" : "bg-[#262626] text-white"
+          audioError
+            ? "bg-gray-400 text-gray-600 cursor-not-allowed"
+            : isFromMe
+            ? "bg-white text-[#0095F6]"
+            : "bg-[#262626] text-white"
         }`}
-        aria-label={playing ? "Pause" : "Play"}
+        aria-label={audioError ? "Audio error" : playing ? "Pause" : "Play"}
+        title={audioError || (playing ? "Pause" : "Play")}
       >
-        {playing ? <FiPause size={14} /> : <FiPlay size={14} />}
+        {audioError ? (
+          "!"
+        ) : playing ? (
+          <FiPause size={14} />
+        ) : (
+          <FiPlay size={14} />
+        )}
       </button>
 
       <div className="flex items-center gap-2">
@@ -213,11 +269,17 @@ const AudioBubble = ({ src, isFromMe = false, filename }) => {
             {bars.map((h, i) => (
               <div
                 key={i}
-                className={`${playing ? "animate-pulse" : ""} rounded-sm`}
+                className={`${
+                  playing && !audioError ? "animate-pulse" : ""
+                } rounded-sm`}
                 style={{
                   width: 3,
                   height: `${h}px`,
-                  background: isFromMe ? "white" : "#1f2937",
+                  background: audioError
+                    ? "#999"
+                    : isFromMe
+                    ? "white"
+                    : "#1f2937",
                   opacity: 0.95,
                 }}
               />
@@ -225,7 +287,12 @@ const AudioBubble = ({ src, isFromMe = false, filename }) => {
           </div>
         </div>
       </div>
-      {filename && (
+      {audioError && (
+        <div className="ml-3 text-xs truncate max-w-[8rem] text-red-500 font-semibold">
+          Failed to load
+        </div>
+      )}
+      {filename && !audioError && (
         <div className="ml-3 text-xs truncate max-w-[8rem]">{filename}</div>
       )}
     </div>

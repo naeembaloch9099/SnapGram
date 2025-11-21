@@ -1,26 +1,19 @@
 import React, { useEffect, useRef } from "react";
-import { FiPhone } from "react-icons/fi";
+import { FiPhone, FiVideo } from "react-icons/fi";
 
 // ---
 // **THIS IS THE UPDATED RINGING SOUND HOOK**
-// It now uses a real MP3 file and loops it.
+// (Logic unchanged as requested)
 // ---
 const useRingingSound = () => {
-  // 1. Create a ref to hold the Audio object
   const audioRef = useRef(null);
 
   useEffect(() => {
-    // 2. Create the Audio object when the component mounts
     try {
-      // This is a high-quality, modern-sounding ringtone from a reliable CDN
       const audio = new Audio(
         "https://cdn.pixabay.com/audio/2022/02/10/audio_50294d3000.mp3"
       );
-      audio.loop = true; // Make it loop continuously
-
-      // Browsers often block audio that plays automatically.
-      // We try to play it, and if it fails, we wait for the user
-      // to interact (which they will when they see the modal).
+      audio.loop = true;
       const playPromise = audio.play();
 
       if (playPromise !== undefined) {
@@ -29,7 +22,6 @@ const useRingingSound = () => {
             "Audio autoplay was blocked. Will play on first click.",
             error
           );
-          // As a fallback, we can try to play it again when the user clicks anywhere
           const playOnInteraction = () => {
             audio
               .play()
@@ -47,82 +39,99 @@ const useRingingSound = () => {
       console.error("Could not create ringing sound:", e);
     }
 
-    // 3. This is the cleanup function.
-    // It runs when the user clicks "Accept" or "Decline"
-    // (because the modal is unmounted / disappears)
     return () => {
       if (audioRef.current) {
-        audioRef.current.pause(); // Stop the sound
-        audioRef.current.src = ""; // Clear the audio source
+        audioRef.current.pause();
+        audioRef.current.src = "";
         audioRef.current = null;
       }
     };
-  }, []); // The empty array [] means this runs only once
+  }, []);
 };
 
-//
-// The rest of your file is 100% UNCHANGED.
-// It already has the green/red buttons and UI.
-//
 const IncomingCallModal = ({ callOffer, onAccept, onDecline }) => {
   const { caller, callType } = callOffer;
 
-  // This line starts the new, better ringing sound
+  // Start ringing sound
   useRingingSound();
 
+  const isVideo = callType === "video";
+
   return (
-    <div className="fixed inset-0 z-50 flex flex-col items-center justify-between bg-gray-900 text-white p-8">
-      {/* Caller Info (Top) */}
-      <div className="text-center pt-20">
-        <h1 className="text-3xl font-semibold mb-2">
-          {caller.displayName || caller.username}
-        </h1>
-        <p className="text-xl text-gray-300 animate-pulse">
-          Incoming {callType} call...
-        </p>
-      </div>
+    <div className="fixed inset-0 z-[100] flex flex-col items-center justify-between overflow-hidden bg-gray-900 text-white font-sans">
+      {/* --- 1. Dynamic Blurred Background --- */}
+      <div
+        className="absolute inset-0 w-full h-full bg-cover bg-center blur-3xl opacity-60 scale-110"
+        style={{
+          backgroundImage: `url(${
+            caller.profilePic || "https://via.placeholder.com/500"
+          })`,
+        }}
+      />
+      {/* Dark Overlay for text readability */}
+      <div className="absolute inset-0 bg-black/40" />
 
-      {/* Caller Avatar (Center) */}
-      <div className="flex-1 flex items-center justify-center">
-        {caller.profilePic ? (
-          <img
-            src={caller.profilePic}
-            alt="caller"
-            className="w-48 h-48 rounded-full object-cover border-4 border-gray-700"
-          />
-        ) : (
-          <div className="w-48 h-48 rounded-full bg-gray-700 flex items-center justify-center">
-            <span className="text-6xl uppercase">
-              {(caller.username || "?").charAt(0)}
-            </span>
-          </div>
-        )}
-      </div>
-
-      {/* Action Buttons (Bottom) */}
-      <div className="w-full flex justify-around items-center pb-20">
-        {/* Decline Button (Red) */}
-        <div className="text-center">
-          <button
-            onClick={onDecline}
-            className="w-20 h-20 bg-red-600 rounded-full flex items-center justify-center transform hover:scale-105 transition-transform"
-            aria-label="Decline call"
-          >
-            <FiPhone className="text-4xl transform rotate-135" />
-          </button>
-          <span className="mt-2 block text-sm">Decline</span>
+      {/* --- 2. Top Info Section --- */}
+      <div className="relative z-10 flex flex-col items-center pt-20 animate-in fade-in slide-in-from-top-10 duration-700">
+        <div className="flex items-center gap-2 mb-3 px-4 py-1 rounded-full bg-white/10 backdrop-blur-md border border-white/10">
+          {isVideo ? <FiVideo size={14} /> : <FiPhone size={14} />}
+          <span className="text-xs font-medium tracking-wide uppercase text-gray-200">
+            Incoming {callType} Call
+          </span>
         </div>
 
-        {/* Accept Button (Green) */}
-        <div className="text-center">
-          <button
-            onClick={onAccept}
-            className="w-20 h-20 bg-green-500 rounded-full flex items-center justify-center transform hover:scale-105 transition-transform"
-            aria-label="Accept call"
+        <h1 className="text-4xl font-bold tracking-tight drop-shadow-lg text-center px-4">
+          {caller.displayName || caller.username}
+        </h1>
+        <p className="text-gray-300 mt-1 drop-shadow-md">SnapGram Audio...</p>
+      </div>
+
+      {/* --- 3. Center Pulsing Avatar --- */}
+      <div className="relative z-10 flex-1 flex items-center justify-center">
+        <div className="relative">
+          {/* Ripple Animation Ring */}
+          <div className="absolute inset-0 rounded-full bg-white/20 animate-ping" />
+
+          {/* Second subtle ring */}
+          <div className="absolute -inset-4 rounded-full border border-white/10" />
+
+          {/* Main Avatar */}
+          <img
+            src={caller.profilePic || "https://via.placeholder.com/150"}
+            alt="caller"
+            className="relative w-40 h-40 rounded-full object-cover shadow-2xl border-4 border-white/10"
+          />
+        </div>
+      </div>
+
+      {/* --- 4. Bottom Action Buttons --- */}
+      <div className="relative z-10 w-full pb-16 px-8">
+        <div className="flex justify-between items-center max-w-xs mx-auto">
+          {/* Decline Button */}
+          <div
+            className="flex flex-col items-center gap-3 group cursor-pointer"
+            onClick={onDecline}
           >
-            <FiPhone className="text-4xl" />
-          </button>
-          <span className="mt-2 block text-sm">Accept</span>
+            <div className="w-20 h-20 rounded-full bg-red-500/90 backdrop-blur-sm text-white flex items-center justify-center shadow-lg shadow-red-500/30 transition-all duration-300 transform group-hover:scale-110 group-active:scale-95">
+              <FiPhone size={32} className="transform rotate-[135deg]" />
+            </div>
+            <span className="text-sm font-medium text-white/80 group-hover:text-white transition-colors">
+              Decline
+            </span>
+          </div>
+
+          {/* Accept Button */}
+          <div
+            className="flex flex-col items-center gap-3 group cursor-pointer"
+            onClick={onAccept}
+          >
+            <div className="w-20 h-20 rounded-full bg-green-500/90 backdrop-blur-sm text-white flex items-center justify-center shadow-lg shadow-green-500/30 transition-all duration-300 transform group-hover:scale-110 group-active:scale-95 animate-bounce">
+              <FiPhone size={32} />
+            </div>
+            <span className="text-sm font-medium text-white/80 group-hover:text-white transition-colors">
+              Accept
+            </span>
+          </div>
         </div>
       </div>
     </div>

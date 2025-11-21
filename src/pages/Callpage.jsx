@@ -1,8 +1,15 @@
 import React, { useState, useEffect, useContext, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { FiPhone, FiMic, FiMicOff, FiVideo, FiVideoOff } from "react-icons/fi";
+import {
+  FiPhone,
+  FiMic,
+  FiMicOff,
+  FiVideo,
+  FiVideoOff,
+  FiMoreHorizontal,
+} from "react-icons/fi";
 import { MessageContext } from "../context/MessageContext";
-import { AuthContext } from "../context/AuthContext"; // Import AuthContext
+import { AuthContext } from "../context/AuthContext";
 
 // Timer formatting helper
 const formatTime = (totalSeconds) => {
@@ -19,7 +26,7 @@ const formatTime = (totalSeconds) => {
 const CallPage = () => {
   const navigate = useNavigate();
   const { call, myStream, peerStream, endCall } = useContext(MessageContext);
-  const { activeUser } = useContext(AuthContext); // Get activeUser
+  const { activeUser } = useContext(AuthContext);
 
   const [callTime, setCallTime] = useState(0);
   const [isMuted, setIsMuted] = useState(false);
@@ -33,6 +40,8 @@ const CallPage = () => {
   useEffect(() => {
     if (myStream && myVideoRef.current) {
       myVideoRef.current.srcObject = myStream;
+      // Ensure audio track is enabled
+      myStream.getAudioTracks().forEach((track) => (track.enabled = true));
       setIsCamOn(
         myStream.getVideoTracks().length > 0 &&
           myStream.getVideoTracks()[0].enabled
@@ -43,27 +52,26 @@ const CallPage = () => {
   useEffect(() => {
     if (peerStream && peerVideoRef.current) {
       peerVideoRef.current.srcObject = peerStream;
+      // Ensure peer audio is enabled
+      peerStream.getAudioTracks().forEach((track) => (track.enabled = true));
+      peerStream.getVideoTracks().forEach((track) => (track.enabled = true));
     }
   }, [peerStream]);
 
   // --- Call Status and Timer ---
   useEffect(() => {
     if (call?.status === "connected") {
-      // Start the 00:01, 00:02 timer
       timerIntervalRef.current = setInterval(() => {
         setCallTime((prevTime) => prevTime + 1);
       }, 1000);
     } else {
-      // Clear timer if status is not 'connected'
       if (timerIntervalRef.current) {
         clearInterval(timerIntervalRef.current);
       }
       setCallTime(0);
     }
 
-    // Handle user leaving the page or call ending unexpectedly
     if (!call) {
-      // If the call object is gone, navigate away
       navigate(`/messages`);
     }
 
@@ -77,7 +85,7 @@ const CallPage = () => {
   // --- Mute/Unmute Controls ---
   const toggleMute = () => {
     if (myStream) {
-      myStream.getAudioTracks()[0].enabled = isMuted; // Note: enabled is opposite of isMuted
+      myStream.getAudioTracks()[0].enabled = isMuted;
       setIsMuted(!isMuted);
     }
   };
@@ -89,11 +97,20 @@ const CallPage = () => {
     }
   };
 
-  // Get the other user (recipient if we are caller, caller if we are recipient)
+  // Get the other user
   const otherUser =
     call?.caller?.username === activeUser?.username
       ? call?.recipient
       : call?.caller;
+
+  // 🔧 Safe image handler with fallback
+  const [imageError, setImageError] = useState(false);
+  const getProfileImage = () => {
+    if (imageError || !otherUser?.profilePic) {
+      return "https://via.placeholder.com/500?text=No+Image";
+    }
+    return otherUser.profilePic;
+  };
 
   const getStatusText = () => {
     if (!call) return "Call Ended";
@@ -101,11 +118,11 @@ const CallPage = () => {
       case "ringing":
         return "Ringing...";
       case "connected":
-        return formatTime(callTime); // The 00:01 timer
+        return formatTime(callTime);
       case "declined":
         return "Call Declined";
       case "unavailable":
-        return "User is unavailable";
+        return "Unavailable";
       case "ended":
         return "Call Ended";
       default:
@@ -113,89 +130,137 @@ const CallPage = () => {
     }
   };
 
-  // This is the "In-Call" UI
   return (
-    <div className="fixed inset-0 z-50 flex flex-col items-center justify-between bg-gray-900 text-white p-8">
-      {/* 1. Video Feeds */}
+    <div className="relative w-full h-screen overflow-hidden bg-gray-900 text-white">
+      {/* --- 1. MAIN BACKGROUND / PEER VIDEO LAYER --- */}
       <div className="absolute inset-0 w-full h-full">
-        {/* Peer Video (Full Screen) */}
         {peerStream && call?.callType === "video" ? (
           <video
             ref={peerVideoRef}
             playsInline
             autoPlay
+            controls={false}
             className="w-full h-full object-cover"
           />
         ) : (
-          // Fallback: Show avatar if audio-only or no peer stream yet
-          <div className="w-full h-full bg-gray-800 flex flex-col items-center justify-center">
-            {otherUser?.profilePic ? (
-              <img
-                src={otherUser.profilePic}
-                alt="user"
-                className="w-48 h-48 rounded-full object-cover border-4 border-gray-700"
-              />
-            ) : (
-              <div className="w-48 h-48 rounded-full bg-gray-700 flex items-center justify-center">
-                <span className="text-6xl uppercase">
-                  {(otherUser?.username || "?").charAt(0)}
-                </span>
+          // Audio Mode / No Video UI: Blurred background + Centered Avatar
+          <div className="relative w-full h-full flex flex-col items-center justify-center">
+            {/* Blurred Background Image - 🔧 FIX: Add error handling */}
+            <div
+              className="absolute inset-0 bg-cover bg-center blur-3xl opacity-60 scale-110"
+              style={{
+                backgroundImage: `url(${getProfileImage()})`,
+              }}
+              onError={() => setImageError(true)}
+            />
+            <div className="absolute inset-0 bg-black/30" />{" "}
+            {/* Overlay to darken */}
+            {/* Center Avatar with Pulse */}
+            <div className="relative z-10 flex flex-col items-center">
+              <div className="relative">
+                {call?.status === "ringing" && (
+                  <div className="absolute inset-0 rounded-full border-[3px] border-white/30 animate-ping" />
+                )}
+                <img
+                  src={getProfileImage()}
+                  alt="user"
+                  className="w-32 h-32 rounded-full object-cover border-4 border-white/20 shadow-2xl"
+                  onError={() => setImageError(true)}
+                />
               </div>
-            )}
-            <h1 className="text-3xl font-semibold mt-4">
-              {otherUser?.displayName || otherUser?.username || "Unknown"}
-            </h1>
+              <h2 className="mt-6 text-3xl font-bold tracking-tight text-white drop-shadow-md">
+                {otherUser?.displayName || otherUser?.username}
+              </h2>
+              <p className="mt-2 text-white/80 text-lg font-medium drop-shadow-md">
+                {getStatusText()}
+              </p>
+            </div>
           </div>
         )}
-
-        {/* My Video (Picture-in-Picture) */}
-        {call?.callType === "video" && (
-          <video
-            ref={myVideoRef}
-            playsInline
-            autoPlay
-            muted
-            className={`absolute top-4 right-4 w-32 h-48 object-cover rounded-lg bg-black ${
-              isCamOn ? "" : "hidden"
-            }`}
-          />
-        )}
       </div>
 
-      {/* 2. Top Info */}
-      <div className="relative z-10 text-center pt-4">
-        <h1 className="text-2xl font-semibold">
-          {otherUser?.displayName || otherUser?.username || "Unknown"}
-        </h1>
-        <p className="text-lg text-gray-300">{getStatusText()}</p>
-      </div>
+      {/* --- 2. GRADIENT OVERLAYS (Visibility Protection) --- */}
+      {call?.callType === "video" && (
+        <>
+          <div className="absolute top-0 left-0 right-0 h-40 bg-gradient-to-b from-black/70 to-transparent pointer-events-none" />
+          <div className="absolute bottom-0 left-0 right-0 h-48 bg-gradient-to-t from-black/80 via-black/40 to-transparent pointer-events-none" />
+        </>
+      )}
 
-      {/* 3. Bottom Controls */}
-      <div className="relative z-10 w-full max-w-sm flex justify-around items-center pb-8">
-        {/* Show Camera toggle only for video calls */}
-        {call?.callType === "video" && (
+      {/* --- 3. HEADER INFO (Only shows on video calls, audio has center info) --- */}
+      {call?.callType === "video" && (
+        <div className="absolute top-0 left-0 right-0 pt-14 pb-4 flex flex-col items-center z-20">
+          <h1 className="text-2xl font-bold drop-shadow-lg">
+            {otherUser?.displayName || otherUser?.username}
+          </h1>
+          <span className="text-sm font-medium px-3 py-1 rounded-full bg-black/20 backdrop-blur-sm mt-2">
+            {getStatusText()}
+          </span>
+        </div>
+      )}
+
+      {/* --- 4. SELF VIDEO (Draggable/Floating PiP Style) --- */}
+      {call?.callType === "video" && (
+        <div
+          className={`absolute top-16 right-4 z-30 transition-all duration-300 ${
+            isCamOn ? "opacity-100" : "opacity-0"
+          }`}
+        >
+          <div className="w-28 h-40 sm:w-32 sm:h-48 rounded-2xl overflow-hidden shadow-2xl border-2 border-white/20 bg-black/50 backdrop-blur-sm">
+            <video
+              ref={myVideoRef}
+              playsInline
+              autoPlay
+              muted
+              controls={false}
+              className="w-full h-full object-cover"
+            />
+          </div>
+        </div>
+      )}
+
+      {/* --- 5. CONTROL BAR (Bottom Glassmorphism) --- */}
+      <div className="absolute bottom-10 left-0 right-0 z-40 flex justify-center items-center">
+        <div className="flex items-center gap-6 px-8 py-5 bg-black/40 backdrop-blur-xl rounded-[2.5rem] border border-white/10 shadow-2xl">
+          {/* Camera Toggle */}
+          {call?.callType === "video" && (
+            <button
+              onClick={toggleCamera}
+              className={`p-4 rounded-full transition-all duration-200 ${
+                isCamOn
+                  ? "bg-white/10 hover:bg-white/20 text-white"
+                  : "bg-white text-black"
+              }`}
+            >
+              {isCamOn ? <FiVideo size={24} /> : <FiVideoOff size={24} />}
+            </button>
+          )}
+
+          {/* Mute Toggle */}
           <button
-            onClick={toggleCamera}
-            className="p-4 bg-gray-700 bg-opacity-50 rounded-full disabled:opacity-30"
+            onClick={toggleMute}
+            className={`p-4 rounded-full transition-all duration-200 ${
+              !isMuted
+                ? "bg-white/10 hover:bg-white/20 text-white"
+                : "bg-white text-black"
+            }`}
           >
-            {isCamOn ? <FiVideo size={24} /> : <FiVideoOff size={24} />}
+            {isMuted ? <FiMicOff size={24} /> : <FiMic size={24} />}
           </button>
-        )}
 
-        <button
-          onClick={toggleMute}
-          className="p-4 bg-gray-700 bg-opacity-50 rounded-full"
-        >
-          {isMuted ? <FiMicOff size={24} /> : <FiMic size={24} />}
-        </button>
+          {/* End Call */}
+          <button
+            onClick={() => endCall(true)}
+            className="p-4 bg-red-500 hover:bg-red-600 text-white rounded-full transition-all duration-200 shadow-lg shadow-red-500/30 scale-110 mx-2"
+          >
+            <FiPhone size={28} className="transform rotate-[135deg]" />
+          </button>
 
-        <button
-          onClick={() => endCall(true)}
-          className="w-16 h-16 bg-red-600 rounded-full flex items-center justify-center transform hover:scale-105 transition-transform"
-          aria-label="End call"
-        >
-          <FiPhone className="text-3xl transform rotate-135" />
-        </button>
+          {/* More Options (Visual Placeholder for future features) */}
+          <button className="p-4 rounded-full bg-white/10 hover:bg-white/20 text-white transition-all duration-200">
+            <FiMoreHorizontal size={24} />
+          </button>
+        </div>
       </div>
     </div>
   );

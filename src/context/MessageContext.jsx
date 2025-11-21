@@ -177,10 +177,26 @@ export const MessageProvider = ({ children }) => {
     if (!incomingCall) return;
     if (callTimeoutRef.current) clearTimeout(callTimeoutRef.current);
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: incomingCall.callType === "video",
-        audio: true,
-      });
+      // 🔧 FIX: Ensure audio is properly configured
+      const constraints = {
+        video:
+          incomingCall.callType === "video"
+            ? { width: 1280, height: 720 }
+            : false,
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
+        },
+      };
+      const stream = await navigator.mediaDevices.getUserMedia(constraints);
+
+      // Enable all audio/video tracks
+      stream.getAudioTracks().forEach((track) => (track.enabled = true));
+      if (incomingCall.callType === "video") {
+        stream.getVideoTracks().forEach((track) => (track.enabled = true));
+      }
+
       setMyStream(stream);
       const callData = {
         callId: incomingCall.callId,
@@ -191,10 +207,19 @@ export const MessageProvider = ({ children }) => {
         status: "connected",
       };
       setCall(callData);
+
+      // 🔧 FIX: Add proper config for audio
       const peer = new window.SimplePeer({
         initiator: false,
         stream: stream,
         trickle: false,
+        config: {
+          iceServers: [
+            { urls: ["stun:stun.l.google.com:19302"] },
+            { urls: ["stun:stun1.l.google.com:19302"] },
+            { urls: ["stun:stun2.l.google.com:19302"] },
+          ],
+        },
       });
       setCallPeer(peer);
       peer.signal(incomingCall.signal);
@@ -207,8 +232,20 @@ export const MessageProvider = ({ children }) => {
         };
         socketEmit("call:accepted", acceptData);
       });
-      peer.on("stream", (stream) => {
-        setPeerStream(stream);
+      // 🔧 FIX: Ensure peer stream audio is enabled when received
+      peer.on("stream", (remoteStream) => {
+        console.log("✅ Peer stream received with tracks:", {
+          audioTracks: remoteStream.getAudioTracks().length,
+          videoTracks: remoteStream.getVideoTracks().length,
+        });
+        // Ensure audio tracks are enabled
+        remoteStream
+          .getAudioTracks()
+          .forEach((track) => (track.enabled = true));
+        remoteStream
+          .getVideoTracks()
+          .forEach((track) => (track.enabled = true));
+        setPeerStream(remoteStream);
       });
       peer.on("close", () => endCall(false));
       peer.on("error", (err) => console.error("Peer error:", err));
@@ -223,10 +260,23 @@ export const MessageProvider = ({ children }) => {
   const startCall = useCallback(
     async (callType, otherUser, conversationId) => {
       try {
-        const stream = await navigator.mediaDevices.getUserMedia({
-          video: callType === "video",
-          audio: true,
-        });
+        // 🔧 FIX: Ensure audio is properly configured with echo cancellation
+        const constraints = {
+          video: callType === "video" ? { width: 1280, height: 720 } : false,
+          audio: {
+            echoCancellation: true,
+            noiseSuppression: true,
+            autoGainControl: true,
+          },
+        };
+        const stream = await navigator.mediaDevices.getUserMedia(constraints);
+
+        // Enable all audio/video tracks
+        stream.getAudioTracks().forEach((track) => (track.enabled = true));
+        if (callType === "video") {
+          stream.getVideoTracks().forEach((track) => (track.enabled = true));
+        }
+
         setMyStream(stream);
         const callId = `call_${Date.now()}_${activeUser._id}`;
         const callData = {
@@ -238,10 +288,19 @@ export const MessageProvider = ({ children }) => {
           status: "ringing",
         };
         setCall(callData);
+
+        // 🔧 FIX: Add proper config for audio and STUN servers
         const peer = new window.SimplePeer({
           initiator: true,
           stream: stream,
           trickle: false,
+          config: {
+            iceServers: [
+              { urls: ["stun:stun.l.google.com:19302"] },
+              { urls: ["stun:stun1.l.google.com:19302"] },
+              { urls: ["stun:stun2.l.google.com:19302"] },
+            ],
+          },
         });
         setCallPeer(peer);
         peer.on("signal", (offer) => {
@@ -264,8 +323,20 @@ export const MessageProvider = ({ children }) => {
           });
           navigate(`/call/${callId}`);
         });
-        peer.on("stream", (stream) => {
-          setPeerStream(stream);
+        // 🔧 FIX: Ensure peer stream audio is enabled when received
+        peer.on("stream", (remoteStream) => {
+          console.log("✅ Peer stream received with tracks:", {
+            audioTracks: remoteStream.getAudioTracks().length,
+            videoTracks: remoteStream.getVideoTracks().length,
+          });
+          // Ensure audio tracks are enabled
+          remoteStream
+            .getAudioTracks()
+            .forEach((track) => (track.enabled = true));
+          remoteStream
+            .getVideoTracks()
+            .forEach((track) => (track.enabled = true));
+          setPeerStream(remoteStream);
         });
         peer.on("close", () => endCall(false));
         peer.on("error", (err) => console.error("Peer error:", err));
