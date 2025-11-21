@@ -723,28 +723,29 @@ const MessageChatBox = ({ conversationId }) => {
     }
   };
 
-  // Lightweight click wrapper for story thumbnails — logs metadata and then opens the story
+  // Lightweight click wrapper for story thumbnails — opens the story directly
   const handleStoryClick = (message) => (ev) => {
     try {
       if (ev && ev.preventDefault) ev.preventDefault();
+      if (ev && ev.stopPropagation) ev.stopPropagation();
+
       const meta = message?.metadata || null;
-      const candidate =
-        meta?.storyId ||
-        meta?.story_id ||
-        meta?.story?.id ||
-        meta?.storyUrl ||
-        meta?.storyImage ||
-        null;
-      console.info("MessageChatBox: story thumbnail clicked", {
-        candidate,
+      const storyId = meta?.storyId || meta?.story_id || meta?.story?.id;
+
+      console.info("MessageChatBox: story thumbnail clicked - opening story", {
+        storyId,
+        storyUrl: meta?.storyUrl,
         metadata: meta,
         messageId: message?._id || message?.id,
       });
-      if (!candidate) {
-        console.warn("MessageChatBox: no story id found in metadata", message);
+
+      if (!storyId) {
+        console.warn("MessageChatBox: no story ID found in metadata", message);
+        return;
       }
-      // preserve existing behaviour: dispatch event
-      openStoryById(candidate || meta || null);
+
+      // Dispatch event to StoriesTray to open the story
+      openStoryById(storyId);
     } catch (err) {
       console.error("MessageChatBox.handleStoryClick error", err);
     }
@@ -951,7 +952,7 @@ const MessageChatBox = ({ conversationId }) => {
                           isFromMe ? "items-end" : "items-start"
                         } gap-3`}
                       >
-                        {/* Story Thumbnail - Instagram Size */}
+                        {/* Story Thumbnail - Compact Size */}
                         {storyThumb && (
                           <div
                             role="button"
@@ -960,40 +961,33 @@ const MessageChatBox = ({ conversationId }) => {
                               if (e.key === "Enter") handleStoryClick(m)(e);
                             }}
                             onClick={(e) => handleStoryClick(m)(e)}
-                            className="relative rounded-2xl overflow-hidden shadow-xl border border-gray-200 w-72 h-96 cursor-pointer"
+                            className="relative rounded-lg overflow-hidden shadow-md border border-gray-300 w-32 h-48 cursor-pointer hover:shadow-lg transition-shadow"
                           >
                             <img
                               src={storyThumb}
                               alt="Story reply"
                               className="w-full h-full object-cover"
                             />
-                            {/* Instagram-style dark gradient overlay */}
-                            <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
+                            {/* Dark overlay for better text readability */}
+                            <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent" />
                             {/* Sender avatar overlay (top-left) */}
                             {m.sender && (
                               <img
                                 src={m.sender.profilePic || m.sender.avatar}
                                 alt={m.sender.username || m.sender.displayName}
-                                className="absolute top-3 left-3 w-10 h-10 rounded-full border-2 border-white object-cover shadow"
+                                className="absolute top-2 left-2 w-7 h-7 rounded-full border-2 border-white object-cover shadow"
                                 onError={(e) =>
                                   (e.currentTarget.src = "/default-avatar.png")
                                 }
                               />
                             )}
 
-                            {/* Tiny clickable caption overlay (bottom-left) */}
-                            <button
-                              type="button"
-                              onClick={(ev) => {
-                                ev.stopPropagation();
-                                handleStoryClick(m)(ev);
-                              }}
-                              className="absolute left-3 bottom-3 bg-black/60 text-white text-[11px] px-2 py-0.5 rounded-full shadow-sm hover:bg-black/70"
-                            >
+                            {/* Tiny caption overlay (bottom-left) */}
+                            <div className="absolute left-2 bottom-2 bg-black/60 text-white text-[9px] px-1.5 py-0.5 rounded-full shadow-sm line-clamp-1">
                               {isFromMe
                                 ? "You replied"
                                 : `${senderName} replied`}
-                            </button>
+                            </div>
                           </div>
                         )}
 

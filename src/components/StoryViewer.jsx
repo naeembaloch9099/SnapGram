@@ -34,6 +34,7 @@ const StoryViewer = ({
   const timerRef = useRef(null);
   const inputRef = useRef(null);
   const videoRef = useRef(null);
+  const imageRef = useRef(null);
 
   const current = stories[index];
   const duration = mediaIsVideo ? 15000 : 7000; // 15s video, 7s image
@@ -162,13 +163,45 @@ const StoryViewer = ({
       });
       const convId = convRes?.data?._id || convRes?.data?.id;
 
+      // Capture thumbnail from the currently displayed media
+      let storySnapshot = null;
+      if (mediaIsVideo && videoRef.current) {
+        try {
+          const canvas = document.createElement("canvas");
+          canvas.width = videoRef.current.videoWidth || 400;
+          canvas.height = videoRef.current.videoHeight || 600;
+          const ctx = canvas.getContext("2d");
+          if (ctx) {
+            ctx.drawImage(videoRef.current, 0, 0);
+            storySnapshot = canvas.toDataURL("image/jpeg", 0.7);
+          }
+        } catch (e) {
+          console.debug("Failed to capture video thumbnail", e);
+        }
+      } else if (imageRef.current) {
+        // For images, capture from the img element
+        try {
+          const canvas = document.createElement("canvas");
+          canvas.width = imageRef.current.naturalWidth || 400;
+          canvas.height = imageRef.current.naturalHeight || 600;
+          const ctx = canvas.getContext("2d");
+          if (ctx) {
+            ctx.drawImage(imageRef.current, 0, 0);
+            storySnapshot = canvas.toDataURL("image/jpeg", 0.7);
+          }
+        } catch (e) {
+          console.debug("Failed to capture image thumbnail", e);
+        }
+      }
+
       // Build message payload with story reference in metadata
       const payload = {
         text: replyText.trim(),
-        metadata: {
-          storyId: current._id,
-          storyUrl: current.url,
-          storyType:
+        storyId: current._id,
+        storyUrl: current.url || mediaSrc,
+        storySnapshot: storySnapshot || {
+          url: current.url || mediaSrc,
+          type:
             current.metadata?.resource_type ||
             (mediaIsVideo ? "video" : "image"),
         },
@@ -196,7 +229,7 @@ const StoryViewer = ({
     } finally {
       setSendingReply(false);
     }
-  }, [current, group.userId, replyText, mediaIsVideo, showToast]);
+  }, [current, group.userId, replyText, mediaIsVideo, showToast, mediaSrc]);
 
   // --- Navigation Callbacks ---
 
@@ -654,6 +687,7 @@ const StoryViewer = ({
           </div>
         ) : (
           <img
+            ref={imageRef}
             src={mediaSrc || current.url}
             className="max-h-full max-w-full object-contain"
             onError={(e) => {

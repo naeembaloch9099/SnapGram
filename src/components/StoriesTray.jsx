@@ -211,6 +211,10 @@ const StoriesTray = () => {
             }
           });
           if (si >= 0) {
+            console.info("stories:open found story in groups", {
+              groupIndex: gi,
+              storyIndex: si,
+            });
             setCurrentGroupIndex(gi);
             setCurrentStoryIndex(si);
             setViewerOpen(true);
@@ -218,11 +222,58 @@ const StoriesTray = () => {
           }
         }
 
-        // Nothing matched — helpful debug for developers
-        console.info("stories:open dispatched but no matching story found", {
-          candidate,
-          groupsCount: groups.length,
-        });
+        // Story not found in groups - fetch it from backend by storyId
+        console.info(
+          "stories:open story not in groups, fetching from backend",
+          {
+            candidate,
+          }
+        );
+
+        if (!candidate) {
+          console.warn("No story ID to fetch");
+          return;
+        }
+
+        // Fetch the story by ID
+        api
+          .get(`/stories/${candidate}`)
+          .then((res) => {
+            const story = res.data;
+            if (!story) {
+              console.warn("Story not found on backend");
+              return;
+            }
+
+            // Create a temporary group for this story
+            const tempGroup = {
+              userId: story.userId || story.owner?._id,
+              username: story.username || story.owner?.username || "User",
+              profilePic:
+                story.profilePic ||
+                story.owner?.profilePic ||
+                "/default-avatar.png",
+              stories: [story],
+              hasViewed: !!story.viewed,
+            };
+
+            console.info("Opened story from backend", {
+              tempGroup,
+            });
+
+            // Open viewer with the fetched story
+            setCurrentGroupIndex(-1); // Indicate this is a temp group
+            setCurrentStoryIndex(0);
+            // Store the temp group and open viewer
+            if (tempGroup) {
+              // Pass via local state since it's not in groups
+              window.__TEMP_STORY_GROUP = tempGroup;
+              setViewerOpen(true);
+            }
+          })
+          .catch((err) => {
+            console.error("Failed to fetch story", err);
+          });
       } catch (e) {
         console.debug("stories:open handler failed", e);
       }
@@ -275,7 +326,10 @@ const StoriesTray = () => {
     [fetchStories]
   );
 
-  const currentGroup = groups[currentGroupIndex];
+  const currentGroup =
+    currentGroupIndex === -1
+      ? window.__TEMP_STORY_GROUP
+      : groups[currentGroupIndex];
 
   const handleNextGroup = () => {
     if (currentGroupIndex < groups.length - 1) {
@@ -370,6 +424,18 @@ const StoriesTray = () => {
             })}
         </div>
       </div>
+      {/* Dev-only debug panel: helps manually test story opening */}
+      {import.meta.env.MODE !== "production" && (
+        <div className="fixed right-4 bottom-4 z-50 text-sm">
+          <div className="bg-white border rounded-lg shadow p-3 w-64">
+            <div className="font-semibold text-xs mb-2">Stories Debug</div>
+            <div className="text-xs text-slate-500 mb-2">
+              Groups: {Array.isArray(groups) ? groups.length : 0}
+            </div>
+            <DebugPanel groups={groups} />
+          </div>
+        </div>
+      )}
 
       {/* Full-Screen Story Viewer */}
       <AnimatePresence>
@@ -402,3 +468,71 @@ const StoriesTray = () => {
 };
 
 export default StoriesTray;
+
+// --- DebugPanel component (dev-only) ---
+const DebugPanel = ({ groups }) => {
+  const [input, setInput] = React.useState("");
+  const [msg, setMsg] = React.useState(null);
+
+  const pickSample = (g) => {
+    if (!g || !g.stories || g.stories.length === 0) return;
+    const s = g.stories[0];
+    const id = s._id || s.id || s.storyId || s.url || "";
+    setInput(String(id));
+  };
+
+  const openCandidate = (candidate) => {
+    try {
+      const idToSend = String(candidate || input || "");
+      if (!idToSend) return setMsg("Please enter an id or select a sample.");
+      setMsg(`Dispatching: ${idToSend}`);
+      window.dispatchEvent(
+        new CustomEvent("stories:open", {
+          detail: { storyId: idToSend, story_id: idToSend, storyUrl: idToSend },
+        })
+      );
+      // also show a short-lived visual hint
+      setTimeout(() => setMsg(null), 2500);
+    } catch (e) {
+      console.error(e);
+      setMsg("Dispatch failed (see console)");
+    }
+  };
+
+  return (
+    <div>
+      <div className="flex gap-2 mb-2">
+        <input
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          placeholder="story id or url"
+          className="flex-1 px-2 py-1 border rounded text-xs"
+        />
+        <button
+          onClick={() => openCandidate()}
+          className="px-2 py-1 bg-indigo-600 text-white rounded text-xs"
+        >
+          Open
+        </button>
+      </div>
+
+      <div className="max-h-28 overflow-y-auto mb-2">
+        {(groups || []).slice(0, 6).map((g, idx) => (
+          <div key={idx} className="mb-1">
+            <button
+              onClick={() => pickSample(g)}
+              className="w-full text-left text-xs p-1 border rounded bg-gray-50 hover:bg-gray-100"
+            >
+              {g.username || g.userId} • {g.stories?.length || 0}
+            </button>
+          </div>
+        ))}
+      </div>
+
+      <div className="text-xs text-slate-500 mb-1">{msg}</div>
+      <div className="text-xs text-left text-slate-400">
+        window.__SNAPGRAM_STORIES available in Console
+      </div>
+    </div>
+  );
+};
