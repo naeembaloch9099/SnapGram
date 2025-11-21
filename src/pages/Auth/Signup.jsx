@@ -6,6 +6,49 @@ import { uploadToCloudinary } from "../../services/cloudinaryClient";
 import PasswordInput from "../../components/PasswordInput";
 import SocialLogin from "../../components/SocialLogin";
 
+// Helper component for the user avatar/placeholder
+const UserAvatarPlaceholder = ({ preview, onClick }) => (
+  <div className="flex flex-col items-center gap-1 mb-4">
+    <label htmlFor="profile-pic" className="cursor-pointer relative group">
+      <img
+        // Placeholder uses the gradient colors for the border
+        src={preview || "https://placehold.co/100x100/FEDA75/4F5BD5?text=Photo"}
+        alt="Profile preview"
+        className="w-20 h-20 rounded-full object-cover border-4 border-white/40 shadow-lg transition-all group-hover:scale-105"
+      />
+      <div className="absolute inset-0 w-20 h-20 rounded-full bg-black bg-opacity-30 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+        <svg
+          className="w-5 h-5 text-white"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+          xmlns="http://www.w3.org/2000/svg"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth="2"
+            d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.218A2 2 0 0110.424 4h3.152a2 2 0 011.664.89l.812 1.218a2 2 0 001.664.89H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"
+          ></path>
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth="2"
+            d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"
+          ></path>
+        </svg>
+      </div>
+    </label>
+    <button
+      type="button"
+      onClick={onClick}
+      className="text-[10px] text-white/80 font-medium hover:text-white transition"
+    >
+      {preview ? "Change Photo" : "Upload Photo"}
+    </button>
+  </div>
+);
+
 const suggestUsername = (fullName) => {
   if (!fullName) return "user" + Math.floor(Math.random() * 9000 + 1000);
   const base = fullName
@@ -33,16 +76,7 @@ const Signup = () => {
   const [canResendOtp, setCanResendOtp] = useState(false);
   const [resendTimer, setResendTimer] = useState(0);
 
-  // --- ERROR: This function was a bug ---
-  // It was reading from 'localStorage' but nothing ever wrote to it.
-  // This check provided a false sense of security and would not work.
-  // The server is the correct place to validate if a username is taken,
-  // which happens in the `handleSendOtp` step. I have removed this
-  // function because it was a non-functional error.
-  /*
-  const readUsers = () => { ... };
-  const checkUsernameAvailable = (name) => { ... };
-  */
+  // --- LOGIC FUNCTIONS (Retained) ---
 
   // Check username availability with debounce
   useEffect(() => {
@@ -52,7 +86,6 @@ const Signup = () => {
       return;
     }
 
-    // Validate format client-side
     const usernameRegex = /^[a-z0-9_.-]+$/;
     if (!usernameRegex.test(username)) {
       setUsernameAvailable(false);
@@ -107,7 +140,7 @@ const Signup = () => {
     return () => clearInterval(interval);
   }, [otpSent]);
 
-  // --- Kept: Profile Image Handling ---
+  // Profile Image Handling
   const handleImageUpload = (e) => {
     const file = e.target.files[0];
     if (!file) {
@@ -123,7 +156,7 @@ const Signup = () => {
     reader.readAsDataURL(file);
   };
 
-  // ---- simple toast implementation ----
+  // simple toast implementation
   const [toasts, setToasts] = useState([]);
   const addToast = (message, type = "info", ttl = 5000) => {
     const id = Date.now() + Math.random();
@@ -137,7 +170,6 @@ const Signup = () => {
     addToast(msg, "error");
   };
 
-  // --- FIX: Added missing handleSuggest function ---
   const handleSuggest = () => {
     const newUsername = suggestUsername(fullName);
     setUsername(newUsername);
@@ -160,7 +192,6 @@ const Signup = () => {
         setCanResendOtp(false);
         setResendTimer(120);
 
-        // Restart timer
         const interval = setInterval(() => {
           setResendTimer((prev) => {
             if (prev <= 1) {
@@ -178,19 +209,14 @@ const Signup = () => {
       });
   };
 
-  // --- FIX: Logic corrected ---
-  // This function now validates fields *before* trying to register
+  // Handle Send OTP
   const handleSendOtp = async () => {
     setError("");
-    // strict policy: require an email for signup
     const isEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contact);
     if (!isEmail)
       return setErrorAndToast("Please enter a valid email for signup");
-
-    // --- Added other field validations here ---
     if (!username) return setErrorAndToast("Please choose a username");
 
-    // Validate username format
     const usernameRegex = /^[a-z0-9_.-]+$/;
     if (!usernameRegex.test(username)) {
       return setErrorAndToast(
@@ -201,7 +227,6 @@ const Signup = () => {
     if (password.length < 6)
       return setErrorAndToast("Password must be at least 6 characters");
     if (password !== confirm) return setErrorAndToast("Passwords do not match");
-    // --- End of validation ---
 
     console.debug("Signup: requesting server register (send OTP) for", contact);
 
@@ -238,18 +263,15 @@ const Signup = () => {
       }
     };
 
-    // If preview exists and we have Cloudinary client config, upload it first
     const cloudName = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME;
     const uploadPreset = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET;
     if (preview && cloudName && uploadPreset) {
       try {
-        // preview may be a data URL; convert to blob
         let blob;
         if (preview.startsWith("data:")) {
           const res = await fetch(preview);
           blob = await res.blob();
         } else {
-          // fallback: try fetching preview URL
           const res = await fetch(preview);
           blob = await res.blob();
         }
@@ -264,7 +286,6 @@ const Signup = () => {
           "Profile client upload failed, registering without client upload:",
           err
         );
-        // fallback: register with preview value (data URL)
         await doRegister(preview);
       }
     } else {
@@ -272,13 +293,11 @@ const Signup = () => {
     }
   };
 
-  // --- FIX: Major logic error fixed ---
-  // This function should *only* verify the OTP, not re-register.
+  // Handle OTP Verify
   const handleSubmit = (e) => {
     e.preventDefault();
     setError("");
 
-    // --- Validation ---
     if (!contact) return setErrorAndToast("Please enter your email");
     const isEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contact);
     if (!isEmail) return setErrorAndToast("Enter a valid email address");
@@ -286,19 +305,13 @@ const Signup = () => {
     if (password.length < 6)
       return setErrorAndToast("Password must be at least 6 characters");
     if (password !== confirm) return setErrorAndToast("Passwords do not match");
-
-    // --- Main Logic Fix ---
-    // 1. Check if OTP was even requested
     if (!otpSent) {
       return setErrorAndToast("Please request a verification code first");
     }
-
-    // 2. Check if OTP was entered
     if (!otp) {
       return setErrorAndToast("Please enter the OTP");
     }
 
-    // 3. If all checks pass, submit to /auth/verify
     console.debug("Verifying OTP for:", contact);
     api
       .post("/auth/verify", { email: contact, otp })
@@ -343,19 +356,35 @@ const Signup = () => {
       });
   };
 
+  // --- JSX RENDER (Vertical Flexibility for Scrollability) ---
+
   return (
-    <div>
-      {/* Signup Form */}
-      <form onSubmit={handleSubmit} className="space-y-4">
-        {/* --- ADDED: JSX for profile image preview --- */}
-        <div className="flex flex-col items-center gap-2">
-          <label htmlFor="profile-pic">
-            <img
-              src={preview || "https://via.placeholder.com/100"} // Default image
-              alt="Profile preview"
-              className="w-24 h-24 rounded-full object-cover cursor-pointer border-2 border-gray-300"
-            />
-          </label>
+    // Main Container: Full screen background gradient. Removed rigid vertical centering (items-center)
+    // and added top/bottom padding to allow content to fill and scroll naturally.
+    <div
+      className="min-h-screen w-full flex justify-center 
+                    bg-gradient-to-br from-[#FEDA75] via-[#D62976] to-[#4F5BD5] 
+                    px-6 pt-8 pb-8"
+    >
+      {" "}
+      {/* Increased top/bottom padding slightly for better feel, ensuring scroll works */}
+      {/* Card: Centered horizontally, now flows vertically with screen size */}
+      <div className="w-full max-w-xl bg-black/40 backdrop-blur-xl border border-white/10 rounded-3xl shadow-2xl p-6 sm:p-8 animate-fadeIn text-center flex-shrink-0">
+        {" "}
+        {/* Adjusted p-8/p-10 to p-6/p-8 */}
+        {/* Brand */}
+        <h1 className="text-3xl font-extrabold text-white tracking-wide">
+          SnapGram
+        </h1>
+        <p className="text-neutral-200 mt-1 tracking-wide text-sm">
+          Create your account
+        </p>
+        {/* Profile Image Upload */}
+        <div className="mt-4">
+          <UserAvatarPlaceholder
+            preview={preview}
+            onClick={() => document.getElementById("profile-pic").click()}
+          />
           <input
             id="profile-pic"
             type="file"
@@ -363,175 +392,186 @@ const Signup = () => {
             onChange={handleImageUpload}
             className="hidden" // Hide the default file input
           />
-          <button
-            type="button"
-            onClick={() => document.getElementById("profile-pic").click()}
-            className="text-sm text-indigo-600 hover:underline"
-          >
-            {preview ? "Change" : "Upload"} photo
-          </button>
         </div>
-
-        <input
-          value={contact}
-          onChange={(e) => setContact(e.target.value)}
-          placeholder="Email" // Changed to be specific
-          className="w-full border border-gray-300 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-400 rounded-xl px-4 py-2.5 text-sm outline-none"
-        />
-
-        <input
-          value={fullName}
-          onChange={(e) => setFullName(e.target.value)}
-          placeholder="Full name"
-          className="w-full border border-gray-300 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-400 rounded-xl px-4 py-2.5 text-sm outline-none"
-        />
-
-        <div className="flex gap-2">
-          <div className="flex-1 relative">
-            <input
-              value={username}
-              onChange={(e) =>
-                setUsername(e.target.value.toLowerCase().replace(/\s/g, ""))
-              }
-              placeholder="Username (lowercase, no spaces)"
-              className={`w-full border ${
-                usernameAvailable === false
-                  ? "border-red-500"
-                  : usernameAvailable === true
-                  ? "border-green-500"
-                  : "border-gray-300"
-              } focus:border-indigo-500 focus:ring-1 focus:ring-indigo-400 rounded-xl px-4 py-2.5 text-sm outline-none`}
-            />
-            {checkingUsername && (
-              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-500">
-                Checking...
-              </span>
-            )}
-            {usernameAvailable === true && !checkingUsername && (
-              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-green-600">
-                ✓
-              </span>
-            )}
-            {usernameAvailable === false && !checkingUsername && (
-              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-red-600">
-                ✗
-              </span>
-            )}
-
-            {/* Username suggestions dropdown */}
-            {usernameSuggestions.length > 0 && (
-              <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg">
-                <div className="p-2 text-xs text-gray-600 border-b">
-                  Suggestions:
-                </div>
-                {usernameSuggestions.map((suggestion, idx) => (
-                  <button
-                    key={idx}
-                    type="button"
-                    onClick={() => handleUseSuggestion(suggestion)}
-                    className="w-full text-left px-3 py-2 hover:bg-indigo-50 text-sm transition-colors"
-                  >
-                    {suggestion}
-                  </button>
-                ))}
-              </div>
-            )}
+        {error && (
+          <div className="mt-3 bg-red-500/20 text-red-200 border border-red-500/40 px-3 py-2 rounded-xl text-xs text-center">
+            {error}
           </div>
-          <button
-            type="button"
-            onClick={handleSuggest}
-            className="px-3 py-2 text-sm bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 transition-all"
-          >
-            Suggest
-          </button>
-        </div>
+        )}
+        {/* FORM */}
+        <form onSubmit={handleSubmit} className="mt-4 space-y-3">
+          {/* Email Input */}
+          <input
+            value={contact}
+            onChange={(e) => setContact(e.target.value)}
+            placeholder="Email Address"
+            className="w-full px-4 py-2.5 bg-white/15 border border-white/25 rounded-xl text-white text-sm placeholder-white/60 focus:ring-2 focus:ring-white/60 focus:outline-none"
+            required
+          />
 
-        {/* Password and confirm with show/hide */}
-        <PasswordInput
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          placeholder="Password"
-          autoComplete="new-password"
-          className="w-full border border-gray-300 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-400 rounded-xl px-4 py-2.5 text-sm outline-none"
-        />
+          {/* Full Name Input */}
+          <input
+            value={fullName}
+            onChange={(e) => setFullName(e.target.value)}
+            placeholder="Full Name (optional)"
+            className="w-full px-4 py-2.5 bg-white/15 border border-white/25 rounded-xl text-white text-sm placeholder-white/60 focus:ring-2 focus:ring-white/60 focus:outline-none"
+          />
 
-        <PasswordInput
-          value={confirm}
-          onChange={(e) => setConfirm(e.target.value)}
-          placeholder="Confirm password"
-          autoComplete="new-password"
-          className="w-full border border-gray-300 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-400 rounded-xl px-4 py-2.5 text-sm outline-none"
-        />
+          {/* Username Input with Suggest Button */}
+          <div className="flex gap-3 items-center">
+            <div className="flex-1 relative">
+              <input
+                value={username}
+                onChange={(e) =>
+                  setUsername(e.target.value.toLowerCase().replace(/\s/g, ""))
+                }
+                placeholder="Username (lowercase, no spaces)"
+                className={`w-full px-4 py-2.5 rounded-xl text-white text-sm placeholder-white/60 focus:ring-2 focus:ring-white/60 focus:outline-none ${
+                  usernameAvailable === false
+                    ? "bg-red-500/30 border-red-500/70"
+                    : usernameAvailable === true
+                    ? "bg-green-500/30 border-green-500/70"
+                    : "bg-white/15 border border-white/25"
+                }`}
+              />
 
-        {!otpSent ? (
-          <div className="flex flex-col sm:flex-row items-center gap-2">
+              {/* Status Indicator */}
+              <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+                {checkingUsername && (
+                  <span className="text-xs text-white/50">...</span>
+                )}
+                {usernameAvailable === true && !checkingUsername && (
+                  <span className="text-green-400 text-sm">✓</span>
+                )}
+                {usernameAvailable === false && !checkingUsername && (
+                  <span className="text-red-400 text-sm">✗</span>
+                )}
+              </div>
+
+              {/* Username suggestions dropdown (Styling for dark mode) */}
+              {usernameSuggestions.length > 0 && (
+                <div className="absolute z-20 w-full mt-1 bg-neutral-800 border border-white/20 rounded-lg shadow-xl text-left">
+                  {usernameSuggestions.map((suggestion, idx) => (
+                    <button
+                      key={idx}
+                      type="button"
+                      onClick={() => handleUseSuggestion(suggestion)}
+                      className="w-full text-left px-3 py-1.5 hover:bg-neutral-700 text-xs text-white transition-colors"
+                    >
+                      {suggestion}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <button
+              type="button"
+              onClick={handleSuggest}
+              className="px-3 py-2.5 bg-white text-black text-sm font-semibold rounded-xl hover:bg-neutral-200 transition-all flex-shrink-0"
+            >
+              Suggest
+            </button>
+          </div>
+
+          {/* Password Input */}
+          <PasswordInput
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            placeholder="Password"
+            autoComplete="new-password"
+            className="w-full px-4 py-2.5 bg-white/15 border border-white/25 rounded-xl text-white text-sm placeholder-white/60"
+          />
+
+          {/* Confirm Password Input */}
+          <PasswordInput
+            value={confirm}
+            onChange={(e) => setConfirm(e.target.value)}
+            placeholder="Confirm Password"
+            autoComplete="new-password"
+            className="w-full px-4 py-2.5 bg-white/15 border border-white/25 rounded-xl text-white text-sm placeholder-white/60"
+          />
+
+          {/* Action Buttons / OTP Flow */}
+          {!otpSent ? (
             <button
               type="button"
               onClick={handleSendOtp}
-              className="w-full sm:w-auto px-5 py-2.5 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-all"
+              className="w-full py-3 rounded-xl bg-white text-black font-semibold text-sm tracking-wide hover:bg-neutral-200 active:scale-95 transition mt-5"
             >
-              Send OTP
+              SEND VERIFICATION CODE
             </button>
-          </div>
-        ) : (
-          <div className="space-y-3">
-            <input
-              value={otp}
-              onChange={(e) => setOtp(e.target.value)}
-              placeholder="Enter 6-digit OTP from email"
-              maxLength={6}
-              className="w-full border border-gray-300 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-400 rounded-xl px-4 py-2.5 text-sm outline-none"
-            />
-            <div className="flex items-center justify-between text-sm">
-              <span className="text-gray-600">
-                {canResendOtp ? (
-                  <button
-                    type="button"
-                    onClick={handleResendOtp}
-                    className="text-indigo-600 hover:underline font-medium"
-                  >
-                    Resend OTP
-                  </button>
-                ) : (
-                  <span>
-                    Resend in {Math.floor(resendTimer / 60)}:
-                    {(resendTimer % 60).toString().padStart(2, "0")}
-                  </span>
-                )}
-              </span>
-              <span className="text-xs text-gray-500">
-                OTP expires in 2 minutes
-              </span>
+          ) : (
+            <div className="space-y-3 pt-3">
+              <input
+                value={otp}
+                onChange={(e) => setOtp(e.target.value)}
+                placeholder="Enter 6-digit OTP from email"
+                maxLength={6}
+                className="w-full px-4 py-2.5 rounded-xl text-center tracking-widest bg-white/15 border border-white/25 text-white text-sm placeholder-white/60 focus:ring-2 focus:ring-white/60 focus:outline-none"
+              />
+              <div className="flex items-center justify-between text-xs text-white/70">
+                <span>
+                  {canResendOtp ? (
+                    <button
+                      type="button"
+                      onClick={handleResendOtp}
+                      className="text-white font-bold hover:underline transition"
+                    >
+                      Resend Code
+                    </button>
+                  ) : (
+                    <span>
+                      Resend in {Math.floor(resendTimer / 60)}:
+                      {(resendTimer % 60).toString().padStart(2, "0")}
+                    </span>
+                  )}
+                </span>
+                <span>Code expires in 2 min</span>
+              </div>
+              <button
+                type="submit"
+                className="w-full py-3 rounded-xl bg-white text-black font-semibold text-sm tracking-wide hover:bg-neutral-200 active:scale-95 transition"
+              >
+                VERIFY & CREATE ACCOUNT
+              </button>
             </div>
+          )}
+
+          {/* Divider */}
+          <div className="flex items-center gap-4 py-2">
+            <div className="h-px bg-white/30 flex-1"></div>
+            <span className="text-white/70 text-xs">OR</span>
+            <div className="h-px bg-white/30 flex-1"></div>
           </div>
-        )}
 
-        <button
-          type="submit"
-          className="w-full mt-3 bg-gradient-to-r from-indigo-600 to-pink-500 text-white font-medium py-2.5 rounded-xl hover:opacity-90 transition-all shadow-md"
-        >
-          {/* Changed button text based on state */}
-          {otpSent ? "Verify & Create Account" : "Create Account"}
-        </button>
-        {/* Social signup */}
-        <div className="mt-3">
           <SocialLogin mode="signup" />
-        </div>
-        {/* Display general errors */}
-        {error && <p className="text-sm text-red-600 text-center">{error}</p>}
-      </form>
-
-      <p className="mt-6 text-center text-sm text-gray-600">
-        Have an account?{" "}
-        <Link
-          to="/login"
-          className="text-indigo-600 font-medium hover:underline"
-        >
-          Log in
-        </Link>
-      </p>
-
-      {/* Toasts container */}
+        </form>
+        {/* LOGIN LINK */}
+        <p className="text-center text-white/80 mt-5 text-xs">
+          Already have an account?{" "}
+          <Link to="/login" className="text-white font-medium underline">
+            Log in
+          </Link>
+        </p>
+      </div>
+      {/* ANIMATIONS (Reused from Login) */}
+      <style jsx>{`
+        .animate-fadeIn {
+          animation: fadeIn 0.5s ease-out;
+        }
+        @keyframes fadeIn {
+          0% {
+            opacity: 0;
+            transform: translateY(15px);
+          }
+          100% {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+      `}</style>
+      {/* Toasts container (retained) */}
       <div className="fixed right-4 bottom-6 space-y-2 z-50">
         {toasts.map((t) => (
           <div
